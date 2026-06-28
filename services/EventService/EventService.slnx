@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EventService.API/EventService.API.csproj" />
+    <Project Path="src/EventService.Application/EventService.Application.csproj" />
+    <Project Path="src/EventService.Domain/EventService.Domain.csproj" />
+    <Project Path="src/EventService.Infrastructure/EventService.Infrastructure.csproj" />
+  </Folder>
+</Solution>
