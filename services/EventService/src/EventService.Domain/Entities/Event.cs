@@ -1,3 +1,5 @@
+using EventService.Domain.Exceptions;
+
 namespace EventService.Domain.Entities;
 
 /// <summary>
@@ -13,7 +15,7 @@ public class Event
     public Guid CategoryId { get; private set; }
     public Guid VenueId { get; private set; }
     public DateTimeOffset EventDate { get; private set; }
-    public float TicketPrice { get; private set; }
+    public decimal TicketPrice { get; private set; }
     public int TotalSeats { get; private set; }
     public string? BannerImage { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -32,7 +34,7 @@ public class Event
         Guid categoryId,
         Guid venueId,
         DateTimeOffset eventDate,
-        float ticketPrice,
+        decimal ticketPrice,
         int totalSeats,
         string? bannerImage,
         DateTimeOffset createdAt,
@@ -60,18 +62,21 @@ public class Event
         Guid categoryId,
         Guid venueId,
         DateTimeOffset eventDate,
-        float ticketPrice,
+        decimal ticketPrice,
         int totalSeats,
         string? bannerImage = null)
     {
         if (string.IsNullOrWhiteSpace(title))
-            throw new ArgumentException("Title is required.", nameof(title));
+            throw new DomainValidationException("Title is required.");
         if (ticketPrice < 0)
-            throw new ArgumentException("Ticket price cannot be negative.", nameof(ticketPrice));
+            throw new DomainValidationException("Ticket price cannot be negative.");
         if (totalSeats <= 0)
-            throw new ArgumentException("Total seats must be greater than zero.", nameof(totalSeats));
+            throw new DomainValidationException("Total seats must be greater than zero.");
 
         var now = DateTimeOffset.UtcNow;
+
+        if (eventDate <= now)
+            throw new EventDateInThePastException(eventDate);
 
         return new Event(
             id: Guid.NewGuid(),
@@ -90,7 +95,9 @@ public class Event
     public void UpdateDetails(string title, string? description, Guid categoryId, Guid venueId, DateTimeOffset eventDate)
     {
         if (string.IsNullOrWhiteSpace(title))
-            throw new ArgumentException("Title is required.", nameof(title));
+            throw new DomainValidationException("Title is required.");
+        if (eventDate <= DateTimeOffset.UtcNow)
+            throw new EventDateInThePastException(eventDate);
 
         Title = title.Trim();
         Description = description?.Trim();
@@ -100,10 +107,10 @@ public class Event
         Touch();
     }
 
-    public void UpdatePricing(float ticketPrice)
+    public void UpdatePricing(decimal ticketPrice)
     {
         if (ticketPrice < 0)
-            throw new ArgumentException("Ticket price cannot be negative.", nameof(ticketPrice));
+            throw new DomainValidationException("Ticket price cannot be negative.");
 
         TicketPrice = ticketPrice;
         Touch();

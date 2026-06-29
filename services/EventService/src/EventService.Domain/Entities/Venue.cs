@@ -1,3 +1,5 @@
+using EventService.Domain.Exceptions;
+
 namespace EventService.Domain.Entities;
 
 /// <summary>
@@ -54,15 +56,15 @@ public class Venue
         int capacity)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required.", nameof(name));
+            throw new DomainValidationException("Name is required.");
         if (string.IsNullOrWhiteSpace(address))
-            throw new ArgumentException("Address is required.", nameof(address));
+            throw new DomainValidationException("Address is required.");
         if (string.IsNullOrWhiteSpace(city))
-            throw new ArgumentException("City is required.", nameof(city));
+            throw new DomainValidationException("City is required.");
         if (string.IsNullOrWhiteSpace(country))
-            throw new ArgumentException("Country is required.", nameof(country));
+            throw new DomainValidationException("Country is required.");
         if (capacity <= 0)
-            throw new ArgumentException("Capacity must be greater than zero.", nameof(capacity));
+            throw new DomainValidationException("Capacity must be greater than zero.");
 
         var now = DateTimeOffset.UtcNow;
 
@@ -80,15 +82,15 @@ public class Venue
     public void Update(string name, string address, string city, string country, int capacity)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required.", nameof(name));
+            throw new DomainValidationException("Name is required.");
         if (string.IsNullOrWhiteSpace(address))
-            throw new ArgumentException("Address is required.", nameof(address));
+            throw new DomainValidationException("Address is required.");
         if (string.IsNullOrWhiteSpace(city))
-            throw new ArgumentException("City is required.", nameof(city));
+            throw new DomainValidationException("City is required.");
         if (string.IsNullOrWhiteSpace(country))
-            throw new ArgumentException("Country is required.", nameof(country));
+            throw new DomainValidationException("Country is required.");
         if (capacity <= 0)
-            throw new ArgumentException("Capacity must be greater than zero.", nameof(capacity));
+            throw new DomainValidationException("Capacity must be greater than zero.");
 
         Name = name.Trim();
         Address = address.Trim();

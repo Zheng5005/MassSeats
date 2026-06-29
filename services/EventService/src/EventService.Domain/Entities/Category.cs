@@ -1,3 +1,5 @@
+using EventService.Domain.Exceptions;
+
 namespace EventService.Domain.Entities;
 
 /// <summary>
@@ -32,7 +34,7 @@ public class Category
     public static Category Create(string name, string? description = null)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required.", nameof(name));
+            throw new DomainValidationException("Name is required.");
 
         var now = DateTimeOffset.UtcNow;
 
@@ -47,7 +49,7 @@ public class Category
     public void Update(string name, string? description)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required.", nameof(name));
+            throw new DomainValidationException("Name is required.");
 
         Name = name.Trim();
         Description = description?.Trim();

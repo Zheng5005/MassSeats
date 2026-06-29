@@ -11,7 +11,7 @@ public interface IEventRepository
 {
     Task<Event?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<List<Event>> GetAllAsync(CancellationToken ct = default);
-    Task<List<Categoty>> GetCategoriesAsync(CancellationToken ct = default);
+    Task<List<Category>> GetCategoriesAsync(CancellationToken ct = default);
     Task AddAsync(Event @event, CancellationToken ct = default);
     void Update(Event @event);
     void Remove(Event @event);

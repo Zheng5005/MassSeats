@@ -7,7 +7,7 @@ namespace EventService.Domain.Interfaces;
 /// (the inner layer) and implemented in Infrastructure — this is the
 /// dependency inversion that keeps the domain free of EF Core.
 /// </summary>
-public interface IEventRepository
+public interface IVenueRepository
 {
     Task<Venue?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<List<Venue>> GetAllAsync(CancellationToken ct = default);
