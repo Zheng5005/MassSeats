@@ -1,0 +1,65 @@
+## .NET
+bin/
+obj/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS Code
+.vscode/
+
+## Rider / ReSharper
+.idea/
+*.DotSettings.user
+
+## Visual Studio
+.vs/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+## NuGet
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+## Publish output
+publish/
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## Secrets — use appsettings.Development.json or user-secrets
+appsettings.*.local.json
+
+## Environment files
+.env
+.env.*
+!.env.example
+
+## Logs & temp files
+*.log
+*.tmp
+*.temp
+
+## Build artifacts
+artifacts/
+
+## Test results
+TestResults/
+*.trx
+*.coverage
+
+## NuGet — restore / fallback
+**/[Pp]ackages/*/
+!**/[Pp]ackages/build/
+
+## JetBrains shared settings (user-specific already above)
+*.DotSettings
