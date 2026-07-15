@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain;
 using EventService.Domain.Exceptions;
 
 namespace EventService.Domain.Entities;
@@ -7,9 +8,8 @@ namespace EventService.Domain.Entities;
 /// State changes go through behavior methods so the entity always
 /// protects its own invariants (no anemic model).
 /// </summary>
-public class Event
+public class Event : AggregateRoot
 {
-    public Guid Id { get; private set; }
     public string Title { get; private set; }
     public string? Description { get; private set; }
     public Guid CategoryId { get; private set; }
@@ -39,8 +39,8 @@ public class Event
         string? bannerImage,
         DateTimeOffset createdAt,
         DateTimeOffset updatedAt)
+        : base(id)
     {
-        Id = id;
         Title = title;
         Description = description;
         CategoryId = categoryId;

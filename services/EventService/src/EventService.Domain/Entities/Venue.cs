@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain;
 using EventService.Domain.Exceptions;
 
 namespace EventService.Domain.Entities;
@@ -5,9 +6,8 @@ namespace EventService.Domain.Entities;
 /// <summary>
 /// Entity that represents a venue where events take place.
 /// </summary>
-public class Venue
+public class Venue : AggregateRoot
 {
-    public Guid Id { get; private set; }
     public string Name { get; private set; }
     public string Address { get; private set; }
     public string City { get; private set; }
@@ -34,8 +34,8 @@ public class Venue
         int capacity,
         DateTimeOffset createdAt,
         DateTimeOffset updatedAt)
+        : base(id)
     {
-        Id = id;
         Name = name;
         Address = address;
         City = city;

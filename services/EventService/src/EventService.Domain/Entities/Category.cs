@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain;
 using EventService.Domain.Exceptions;
 
 namespace EventService.Domain.Entities;
@@ -5,9 +6,8 @@ namespace EventService.Domain.Entities;
 /// <summary>
 /// Entity that represents an event category.
 /// </summary>
-public class Category
+public class Category : Entity
 {
-    public Guid Id { get; private set; }
     public string Name { get; private set; }
     public string? Description { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -20,8 +20,8 @@ public class Category
     }
 
     private Category(Guid id, string name, string? description, DateTimeOffset createdAt, DateTimeOffset updatedAt)
+        : base(id)
     {
-        Id = id;
         Name = name;
         Description = description;
         CreatedAt = createdAt;
