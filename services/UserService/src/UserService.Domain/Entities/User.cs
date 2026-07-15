@@ -1,3 +1,5 @@
+using BuildingBlocks.Domain;
+
 namespace UserService.Domain.Entities;
 
 /// <summary>
@@ -5,9 +7,8 @@ namespace UserService.Domain.Entities;
 /// State changes go through behavior methods so the entity always
 /// protects its own invariants (no anemic model).
 /// </summary>
-public class User
+public class User : AggregateRoot
 {
-    public Guid Id { get; private set; }
     public string FirstName { get; private set; }
     public string? LastName { get; private set; }
     public string Email { get; private set; }
@@ -37,8 +38,8 @@ public class User
         string? phone,
         DateTimeOffset createdAt,
         DateTimeOffset updatedAt)
+        : base(id)
     {
-        Id = id;
         FirstName = firstName;
         LastName = lastName;
         Email = email;
