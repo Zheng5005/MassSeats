@@ -23,4 +23,11 @@ public interface IReservationService
 
     /// <summary>Cancels a Pending reservation (user request or payment failure).</summary>
     Task<ReservationResponse> CancelAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Expires every Pending reservation whose hold deadline has passed.
+    /// Called by the background expiration worker on a fixed cadence.
+    /// Returns how many reservations were expired in this sweep.
+    /// </summary>
+    Task<int> ExpireDueReservationsAsync(CancellationToken ct = default);
 }

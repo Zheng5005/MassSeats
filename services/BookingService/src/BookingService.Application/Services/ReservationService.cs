@@ -75,4 +75,24 @@ public sealed class ReservationAppService : IReservationService
 
         return reservation.ToResponse();
     }
+
+    public async Task<int> ExpireDueReservationsAsync(CancellationToken ct = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        // The repository only returns Pending reservations already past
+        // their deadline, so Expire()'s "must be Pending" guard never trips.
+        var due = await _repository.GetExpiredPendingAsync(now, ct);
+        if (due.Count == 0)
+            return 0;
+
+        foreach (var reservation in due)
+        {
+            reservation.Expire();
+            _repository.Update(reservation);
+        }
+
+        await _repository.SaveChangesAsync(ct);
+        return due.Count;
+    }
 }
