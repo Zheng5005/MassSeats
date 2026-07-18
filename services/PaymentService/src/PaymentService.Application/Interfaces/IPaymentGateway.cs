@@ -28,4 +28,5 @@ public sealed record StripeWebhookResult(
     string StripeEventId,
     string StripePaymentIntentId,
     string EventType,
-    string? PaymentMethod);
+    string? PaymentMethod,
+    string? FailureReason);

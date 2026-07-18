@@ -1,6 +1,8 @@
 using PaymentService.Application.DTOs;
 using PaymentService.Application.Interfaces;
 using PaymentService.Application.Mapping;
+using PaymentService.Domain.Entities;
+using PaymentService.Domain.Enums;
 using PaymentService.Domain.Exceptions;
 using PaymentService.Domain.Interfaces;
 
@@ -23,17 +25,24 @@ public sealed class PaymentAppService : IPaymentService
 
     public async Task<PaymentResponse> InitiateAsync(InitiatePaymentRequest request, CancellationToken ct = default)
     {
-        // 1. Create PaymentIntent in Stripe
-        var stripePi = await _gateway.CreatePaymentIntentAsync(request.Amount, request.Currency, ct);
+        // Idempotency: one payment per booking. If SeatReserved is delivered
+        // twice, return the existing payment instead of creating a second
+        // Stripe PaymentIntent for the same booking.
+        var existing = await _repository.GetByBookingIdAsync(request.BookingId, ct);
+        if (existing is not null)
+            return existing.ToResponse();
 
-        // 2. Create domain aggregate
-        var payment = Domain.Entities.Payment.Create(
+        // 1. Create the PaymentIntent in Stripe (external side effect first).
+        var stripePaymentIntentId = await _gateway.CreatePaymentIntentAsync(
+            request.Amount, request.Currency, ct);
+
+        // 2. Create and persist the domain aggregate (Pending).
+        var payment = Payment.Create(
             request.BookingId,
-            stripePi,
+            stripePaymentIntentId,
             request.Amount,
             request.Currency);
 
-        // 3. Persist
         await _repository.AddAsync(payment, ct);
         await _repository.SaveChangesAsync(ct);
 
@@ -52,13 +61,35 @@ public sealed class PaymentAppService : IPaymentService
         return payment?.ToResponse();
     }
 
-    public async Task<PaymentResponse> HandleWebhookAsync(StripeWebhookRequest request, CancellationToken ct = default)
+    public async Task<PaymentResponse> HandleWebhookAsync(StripeWebhookResult webhookEvent, CancellationToken ct = default)
     {
-        // Find payment by Stripe PaymentIntent ID, but we need a lookup...
-        // For now, we look up by the raw body/event context.
-        // The repository needs a GetByStripePaymentIntentId method, but
-        // that's an Infrastructure concern. We'll use the domain events flow.
-        // Placeholder — will be implemented when wiring the webhook.
-        throw new NotImplementedException("Webhook handling will be implemented with the integration layer.");
+        var payment = await _repository.GetByStripePaymentIntentIdAsync(webhookEvent.StripePaymentIntentId, ct)
+                      ?? throw new PaymentNotFoundException(webhookEvent.StripePaymentIntentId);
+
+        // Idempotency: a Stripe webhook may be delivered more than once. Once
+        // the payment left Pending we already processed it — return the current
+        // state without re-applying the transition (no double confirm/charge).
+        if (payment.Status != PaymentStatus.Pending)
+            return payment.ToResponse();
+
+        switch (webhookEvent.EventType)
+        {
+            case "payment_intent.succeeded":
+                payment.Succeed(webhookEvent.PaymentMethod);
+                break;
+
+            case "payment_intent.payment_failed":
+                payment.Fail(webhookEvent.FailureReason ?? "Payment failed at Stripe.");
+                break;
+
+            default:
+                // An event type we don't act on: acknowledge without changing state.
+                return payment.ToResponse();
+        }
+
+        _repository.Update(payment);
+        await _repository.SaveChangesAsync(ct);
+
+        return payment.ToResponse();
     }
 }
