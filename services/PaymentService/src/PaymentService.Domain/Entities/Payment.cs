@@ -91,14 +91,17 @@ public sealed class Payment : AggregateRoot
     }
 
     /// <summary>Marks the payment as failed (Stripe declined or error).</summary>
-    public void Fail()
+    public void Fail(string reason)
     {
         EnsurePending(nameof(Fail));
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new DomainValidationException("A failure reason is required.");
 
         Status = PaymentStatus.Failed;
         UpdatedAt = DateTimeOffset.UtcNow;
 
-        RaiseDomainEvent(new PaymentFailedDomainEvent(Id, BookingId));
+        RaiseDomainEvent(new PaymentFailedDomainEvent(Id, BookingId, reason.Trim()));
     }
 
     private void EnsurePending(string action)

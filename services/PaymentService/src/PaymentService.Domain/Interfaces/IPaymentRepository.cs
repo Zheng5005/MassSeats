@@ -13,6 +13,12 @@ public interface IPaymentRepository
     /// <summary>Finds a payment by its associated booking ID.</summary>
     Task<Payment?> GetByBookingIdAsync(Guid bookingId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Finds a payment by its Stripe PaymentIntent ID. Used when handling
+    /// Stripe webhooks, which identify the payment by that ID.
+    /// </summary>
+    Task<Payment?> GetByStripePaymentIntentIdAsync(string stripePaymentIntentId, CancellationToken ct = default);
+
     Task AddAsync(Payment payment, CancellationToken ct = default);
     void Update(Payment payment);
     Task<int> SaveChangesAsync(CancellationToken ct = default);

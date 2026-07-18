@@ -9,7 +9,8 @@ namespace PaymentService.Domain.Events;
 /// </summary>
 public sealed record PaymentFailedDomainEvent(
     Guid PaymentId,
-    Guid BookingId) : IDomainEvent
+    Guid BookingId,
+    string Reason) : IDomainEvent
 {
     public DateTimeOffset OccurredOn { get; } = DateTimeOffset.UtcNow;
 }

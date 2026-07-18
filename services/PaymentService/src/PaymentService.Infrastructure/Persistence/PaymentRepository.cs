@@ -16,6 +16,9 @@ public sealed class PaymentRepository : IPaymentRepository
     public Task<Payment?> GetByBookingIdAsync(Guid bookingId, CancellationToken ct = default) =>
         _context.Payments.FirstOrDefaultAsync(p => p.BookingId == bookingId, ct);
 
+    public Task<Payment?> GetByStripePaymentIntentIdAsync(string stripePaymentIntentId, CancellationToken ct = default) =>
+        _context.Payments.FirstOrDefaultAsync(p => p.StripePaymentIntentId == stripePaymentIntentId, ct);
+
     public async Task AddAsync(Payment payment, CancellationToken ct = default) =>
         await _context.Payments.AddAsync(payment, ct);
 
