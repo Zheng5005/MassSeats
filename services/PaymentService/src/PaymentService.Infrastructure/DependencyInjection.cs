@@ -1,4 +1,7 @@
+using PaymentService.Application.Interfaces;
 using PaymentService.Domain.Interfaces;
+using PaymentService.Infrastructure.Configuration;
+using PaymentService.Infrastructure.Gateways;
 using PaymentService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -24,7 +27,15 @@ public static class DependencyInjection
 
         services.AddScoped<IPaymentRepository, PaymentRepository>();
 
-        // TODO: register IPaymentGateway (Stripe SDK) when implemented
+        var stripeOptions = new StripeOptions
+        {
+            SecretKey = configuration["Stripe:SecretKey"]
+                ?? throw new InvalidOperationException("'Stripe:SecretKey' is not configured."),
+            WebhookSecret = configuration["Stripe:WebhookSecret"]
+                ?? throw new InvalidOperationException("'Stripe:WebhookSecret' is not configured."),
+        };
+        services.AddSingleton(stripeOptions);
+        services.AddScoped<IPaymentGateway, StripePaymentGateway>();
 
         return services;
     }

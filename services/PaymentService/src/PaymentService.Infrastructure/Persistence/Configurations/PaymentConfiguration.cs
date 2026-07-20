@@ -52,6 +52,15 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.UpdatedAt)
             .HasColumnName("updated_at");
 
+        // One payment per booking: DB-level backstop for the idempotency
+        // check in InitiateAsync (guards the check-then-insert race).
+        builder.HasIndex(p => p.BookingId)
+            .IsUnique();
+
+        // The webhook looks a payment up by this id, so it must be unique.
+        builder.HasIndex(p => p.StripePaymentIntentId)
+            .IsUnique();
+
         builder.Ignore(p => p.DomainEvents);
     }
 }
