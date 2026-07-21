@@ -1,57 +1,41 @@
-using System.Net;
-using System.Text.Json;
 using BuildingBlocks.Domain;
+using PaymentService.Domain.Exceptions;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 
 namespace PaymentService.API.Middleware;
 
 /// <summary>
-/// Catches <see cref="DomainException"/> and returns structured ProblemDetails
-/// responses. Keeps the endpoint code clean of try/catch for domain errors.
+/// Translates domain exceptions into RFC 7807 ProblemDetails responses,
+/// keeping HTTP concerns out of the Application/Domain layers.
 /// </summary>
-public sealed class DomainExceptionHandler
+public sealed class DomainExceptionHandler : IExceptionHandler
 {
-    private readonly RequestDelegate _next;
-
-    public DomainExceptionHandler(RequestDelegate next) => _next = next;
-
-    public async Task InvokeAsync(HttpContext context)
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
     {
-        try
+        var (status, title) = exception switch
         {
-            await _next(context);
-        }
-        catch (DomainException ex)
+            PaymentNotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
+            InvalidPaymentStateException => (StatusCodes.Status409Conflict, "Conflict"),
+            DomainException => (StatusCodes.Status400BadRequest, "Domain rule violation"),
+            ArgumentException => (StatusCodes.Status400BadRequest, "Invalid argument"),
+            _ => (0, string.Empty)
+        };
+
+        // Not a domain exception: let the default handler deal with it.
+        if (status == 0) return false;
+
+        httpContext.Response.StatusCode = status;
+        await httpContext.Response.WriteAsJsonAsync(new ProblemDetails
         {
-            context.Response.ContentType = "application/problem+json";
+            Status = status,
+            Title = title,
+            Detail = exception.Message
+        }, cancellationToken);
 
-            // Map exception type to HTTP status
-            var statusCode = ex switch
-            {
-                // 404
-                Domain.Exceptions.PaymentNotFoundException => HttpStatusCode.NotFound,
-                // 409
-                Domain.Exceptions.InvalidPaymentStateException => HttpStatusCode.Conflict,
-                // 400 (default)
-                _ => HttpStatusCode.BadRequest,
-            };
-
-            context.Response.StatusCode = (int)statusCode;
-
-            var problem = new
-            {
-                type = $"https://httpstatuses.io/{(int)statusCode}",
-                title = statusCode switch
-                {
-                    HttpStatusCode.BadRequest => "Bad Request",
-                    HttpStatusCode.NotFound => "Not Found",
-                    HttpStatusCode.Conflict => "Conflict",
-                    _ => "Error",
-                },
-                status = (int)statusCode,
-                detail = ex.Message,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
-        }
+        return true;
     }
 }
