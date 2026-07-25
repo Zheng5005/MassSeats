@@ -54,10 +54,22 @@
 
 ---
 
-## Estado actual
+## Estado actual (actualizado 2026-07-25)
 
-- ✅ **UserService**: ya reconstruido con Clean Architecture (Guid, PostgreSQL, servicios clásicos, Minimal API, migración inicial). Es el molde de referencia.
-- 🔲 **EventService**, **BookingService**, **PaymentService**: todavía con el template inicial. A reconstruir.
+- ✅ **UserService**: Clean Architecture completa. CRUD probado y funcionando. Guid, PostgreSQL, Minimal API, migración aplicada. **Molde de referencia.**
+- ✅ **EventService**: Clean Architecture completa. 3 entidades (Event, Venue, Category), repositorios, migración, endpoints CRUD. **Compila pero no testeado.**
+- ✅ **BookingService**: Clean Architecture completa. Reservation con máquina de estados, unique constraint, background worker de expiración, migración. **Compila pero no testeado.**
+- ✅ **PaymentService**: Clean Architecture completa. Payment entity rica, Stripe SDK integrado, webhook endpoint, migración. **Compila pero no testeado (requiere Stripe test keys).**
+- 🔲 **RabbitMQ + Saga**: No implementado todavía. Ningún servicio tiene mensajería.
+
+### Lo que queda (priorizado)
+
+1. **Testear EventService y BookingService** individualmente (como se hizo con UserService).
+2. **Testear PaymentService** con Stripe test keys.
+3. **RabbitMQ + Outbox/Inbox**: Integrar mensajería en los 4 servicios.
+4. **Saga coreografía**: Conectar los servicios vía eventos (SeatReserved → Payment → Confirm → Event).
+5. **API Gateway**: HTTP síncrono hacia afuera.
+6. **Docker Compose**: Postgres + RabbitMQ + servicios.
 
 ---
 
@@ -72,39 +84,43 @@ Carpeta `services/BuildingBlocks/` con dos proyectos:
 
 ---
 
-# Servicio 1 — EventService (arrancar por acá: el más simple)
+# Servicio 1 — EventService ✅ CRUD completo (sin mensajería)
 
-Catálogo. CRUD puro, sin saga. Ideal para afianzar el patrón de UserService.
+Catálogo. CRUD puro, sin saga. Ya implementado.
 
-### Dominio
+### Dominio (✅ implementado)
 - **`Event`** (aggregate root): título, descripción, `categoryId`, `venueId`, fecha, precio, `totalSeats`, `availableSeats`, banner, timestamps.
 - **`Venue`** (aggregate root independiente): nombre, dirección, ciudad, país, capacidad.
 - **`Category`** (aggregate root independiente): nombre.
 
 > Recordatorio: `availableSeats` en Event es solo **reflejo informativo** (eventual consistency). La verdad de disponibilidad vive en BookingService.
 
-### Capas
-- **Domain**: las 3 entidades encapsuladas (factory + behavior, como `User`), `IEventRepository`, `IVenueRepository`, `ICategoryRepository`, excepciones (`EventNotFoundException`, etc.).
-- **Application**: DTOs (Create/Update/Response de cada una), `IEventService` / `IVenueService` / `ICategoryService` (servicios clásicos), mapping manual, validación.
-- **Infrastructure**: `EventDbContext`, configuraciones EF (snake_case), 3 repositorios, migración inicial, design-time factory.
-- **API**: Minimal API con grupos `/events`, `/venues`, `/categories`. Endpoint clave: `GET /events` con **paginación y filtros** (categoría, ciudad, rango de fechas).
+### Capas (✅ implementadas)
+- **Domain**: las 3 entidades encapsuladas (factory + behavior, como `User`), `IEventRepository`, `IVenueRepository`, excepciones (`EventNotFoundException`, `DuplicateVenueException`, etc.).
+- **Application**: DTOs (Create/Update/Response de Event y Venue), `IEventService` / `IVenueService` (servicios clásicos), mapping manual, validación.
+- **Infrastructure**: `EventDbContext`, configuraciones EF (snake_case), 2 repositorios (Event, Venue), migración inicial, design-time factory.
+- **API**: Minimal API con grupos `/events` (CRUD + `GET /categories`) y `/venues` (CRUD). `GET /events` retorna todos (paginación pendiente).
 
-### Mensajería
+### Mensajería (🔲 pendiente)
 - **Publica**: `EventCreated`, `EventUpdated`, `EventCancelled` (para que Booking conozca qué eventos existen).
 - **Consume**: `SeatReserved` / `SeatReleased` → ajusta `availableSeats` (reflejo informativo).
 
-### 🎓 Para vos
-Este servicio entero. Es CRUD, ya tenés el molde de User. Practicás **paginación y filtros** con EF Core.
+### 🔲 Pendiente
+- Paginación y filtros en `GET /events` (categoría, ciudad, rango de fechas).
+- Integrar mensajería (outbox + RabbitMQ).
+- Testear endpoints individualmente.
 
 ---
 
-# Servicio 2 — BookingService (el corazón: concurrencia + dueño del inventario)
+# Servicio 2 — BookingService ✅ Dominio + App + Infra (sin mensajería)
 
-El problema más difícil del sistema: **dos usuarios no pueden reservar el mismo asiento**. Concurrencia distribuida. Además, **este servicio es dueño del inventario** (decisión confirmada).
+El corazón del sistema: **concurrencia + dueño del inventario**. Ya implementado.
 
-### Dominio
+### Dominio (✅ implementado)
 - **`Reservation`** (aggregate root): id (Guid), `userId` (Guid), `eventId` (Guid), datos del asiento (sección, fila, número), precio, **status**, `paymentId`, `reservedAt`, **`expiresAt`**.
 - **Estados** (máquina de estados): `Pending → Confirmed` / `Pending → Expired` / `Pending → Cancelled`.
+- **Domain Events**: `ReservationCreated`, `ReservationConfirmed`, `ReservationCancelled`, `ReservationExpired`.
+- **Excepciones**: `SeatAlreadyReservedException`, `InvalidReservationStateException`, `ReservationNotFoundException`, `DomainValidationException`.
 
 ```
    crear reserva           pago OK
@@ -118,59 +134,76 @@ El problema más difícil del sistema: **dos usuarios no pueden reservar el mism
                         ╰───────────╯
 ```
 
-### El problema de concurrencia (lo más importante)
-- Garantizar atomicidad al reservar un asiento. **Solución elegida: unique constraint** en `(event_id, seat_section, seat_row, seat_number)` → la DB rechaza el segundo intento. Robusto y simple.
+### El problema de concurrencia (✅ resuelto)
+- **Unique constraint** en `(event_id, seat_section, seat_row, seat_number)` → la DB rechaza el segundo intento. Robusto y simple.
 - Una reserva `Pending` "ocupa" el asiento temporalmente hasta que expira.
-- Alternativas descartadas (mencionadas para contexto): optimistic concurrency (rowversion), pessimistic locking (`SELECT FOR UPDATE`).
+- `ReservationRepository.SaveChangesAsync()` maneja `PostgresException` (23505) → `SeatAlreadyReservedException` (HTTP 409).
 
-### Inventario (porque Booking es el dueño)
-- Booking mantiene la verdad sobre qué asientos están ocupados/libres por evento.
-- Cuando se crea/confirma/libera una reserva, **publica eventos** para que Event refleje `availableSeats`.
-- Decisión pendiente de detalle: ¿Booking guarda el mapa completo de asientos de cada evento (proyección de capacidad) o solo las reservas? Recomendado: guardar las reservas + conocer `totalSeats`/layout del evento (replicado desde Event vía `EventCreated`).
+### Capas (✅ implementadas)
+- **Domain**: `Reservation` con máquina de estados (`Confirm()`, `Expire()`, `Cancel()`), `IReservationRepository`, excepciones, domain events.
+- **Application**: `ReservationAppService` con casos de uso `CreateAsync`, `GetByIdAsync`, `ConfirmAsync`, `CancelAsync`, `ExpireDueReservationsAsync`. DTOs (`CreateReservationRequest`, `ConfirmReservationRequest`, `ReservationResponse`). `ReservationOptions` (HoldDuration, ExpirationSweepInterval).
+- **Infrastructure**: `BookingDbContext` con **unique constraint**, `ReservationRepository` (con manejo de UniqueViolation), `ReservationConfiguration` (snake_case, partial unique index), `ReservationExpirationWorker` (BackgroundService con PeriodicTimer), migración inicial, design-time factory.
+- **API**: Minimal API con grupo `/reservations` (POST crear, GET por ID, DELETE cancelar).
 
-### Capas
-- **Domain**: `Reservation` con máquina de estados (métodos `Confirm()`, `Expire()`, `Cancel()`), `IReservationRepository`, excepciones (`SeatAlreadyReservedException`, `ReservationExpiredException`).
-- **Application**: casos de uso `CreateReservation`, `ConfirmReservation`, `CancelReservation`, `GetReservation`. Acá vive la coordinación de la saga.
-- **Infrastructure**: `BookingDbContext` con el **unique constraint**, repositorio, **tabla outbox**, y un **background worker** que expira reservas vencidas.
-- **API**: `/reservations` (POST crear, GET consultar, DELETE cancelar).
+### Background Worker (✅ implementado)
+- `ReservationExpirationWorker` usa `PeriodicTimer` con `ExpirationSweepInterval` (default: 1 min).
+- Abre scope fresco por tick (resuelve `IReservationService` Scoped desde un Singleton).
+- Llama `ExpireDueReservationsAsync()` que busca reservas Pending vencidas y las expira en batch.
+- Error handling: un fallo no mata al worker, reintenta en el próximo tick.
 
-### Mensajería (saga de reserva)
+### Mensajería (🔲 pendiente)
 - **Publica**: `SeatReserved` (→ Payment inicia cobro, Event decrementa), `ReservationConfirmed`, `ReservationCancelled` / `ReservationExpired` (→ Event libera).
 - **Consume**: `PaymentSucceeded` (→ Confirm), `PaymentFailed` (→ Cancel).
 - **Background job**: expirar `Pending` vencidas y publicar `ReservationExpired`.
 
-### 🎓 Para vos (lo más jugoso)
-El **unique constraint** + el manejo de la excepción de DB cuando dos reservas chocan. Y el **background worker** de expiración (`BackgroundService` / `IHostedService`). Acá aprendés concurrencia de verdad.
+### 🔲 Pendiente
+- Tabla outbox para domain events (garantizar publicación atómica).
+- Integrar mensajería (outbox + RabbitMQ).
+- Endpoint `PUT /reservations/{id}/confirm` (para testing directo sin RabbitMQ).
+- Testear endpoints y worker individualmente.
 
 ---
 
-# Servicio 3 — PaymentService (integración externa: Stripe)
+# Servicio 3 — PaymentService ✅ Dominio + App + Infra (sin mensajería)
 
-### Dominio
-- **`Payment`** (aggregate root): id (Guid), `bookingId` (Guid), `stripePaymentIntent`, amount, currency, paymentMethod, **status**, timestamps.
+Integración externa con Stripe. Ya implementado.
+
+### Dominio (✅ implementado)
+- **`Payment`** (aggregate root): id (Guid), `bookingId` (Guid), `stripePaymentIntentId` (string), `amount` (decimal), `currency`, `paymentMethod`, **`status`**, `createdAt`, `updatedAt`.
 - **Estados**: `Pending → Succeeded` / `Pending → Failed`.
+- **Domain Events**: `PaymentInitiated`, `PaymentSucceeded`, `PaymentFailed`.
+- **Excepciones**: `DomainValidationException`, `PaymentNotFoundException`, `InvalidPaymentStateException`.
 
-### Lo crítico: idempotencia
-- Stripe envía **webhooks que pueden llegar duplicados o desordenados**. Procesar dos veces = cobrar/confirmar doble. Necesitás **idempotencia** (Inbox pattern o chequear si ya procesaste ese evento de Stripe).
+### Lo crítico: idempotencia (✅ implementada)
+- **En InitiateAsync**: si ya existe un pago para ese `bookingId`, retorna el existente (no crea segundo PaymentIntent en Stripe).
+- **En HandleWebhookAsync**: si el pago ya salió de Pending, retorna el estado actual (no re-aplica Succeed/Fail).
+- **En el endpoint**: verifica firma del webhook ANTES de llegar a la Application. Firma inválida → 400 directo.
 
-### Capas
-- **Domain**: `Payment` encapsulado, `IPaymentRepository`, excepciones.
-- **Application**: `InitiatePayment` (crea PaymentIntent en Stripe), `HandleStripeWebhook` (procesa el resultado), puerto `IPaymentGateway` (abstracción de Stripe).
-- **Infrastructure**: `PaymentDbContext`, repositorio, **implementación de `IPaymentGateway` con el SDK de Stripe**, tabla de idempotencia/inbox.
-- **API**: `POST /payments/webhook` (lo llama **Stripe**, no RabbitMQ — verificar firma del webhook), `GET /payments/{id}`.
+### Capas (✅ implementadas)
+- **Domain**: `Payment` encapsulado (factory `Create()`, `Succeed()`, `Fail()`), `IPaymentRepository` (con `GetByStripePaymentIntentIdAsync`), domain events, excepciones.
+- **Application**: `PaymentAppService` con `InitiateAsync`, `GetByIdAsync`, `GetByBookingIdAsync`, `HandleWebhookAsync`. DTOs (`InitiatePaymentRequest`, `PaymentResponse`, `StripeWebhookRequest`). Puerto `IPaymentGateway` (abstracción de Stripe). `StripeWebhookResult` (resultado parseado del webhook).
+- **Infrastructure**: `PaymentDbContext`, `PaymentRepository`, `PaymentConfiguration` (snake_case), `StripePaymentGateway` (SDK de Stripe), `StripeOptions` (config), migración inicial, design-time factory.
+- **API**: Minimal API con grupo `/payments` (GET por ID, POST `/webhook` para Stripe).
 
-### Mensajería
-- **Consume**: `SeatReserved` (→ inicia el PaymentIntent) — o recibe comando explícito `InitiatePayment`.
+### 🎓 Conceptos clave implementados
+- **Puerto `IPaymentGateway`**: abstracción de Stripe para poder testear sin tocar Stripe real.
+- **Webhook con verificación de firma**: `EventUtility.ConstructEvent()` valida la firma HMAC-SHA256 contra el `WebhookSecret`.
+- **Stripe SDK**: `StripeClient`, `PaymentIntentService`, conversión de montos a centavos.
+
+### Mensajería (🔲 pendiente)
+- **Consume**: `SeatReserved` (→ inicia el PaymentIntent).
 - **Publica**: `PaymentSucceeded`, `PaymentFailed`.
 
-### 🎓 Para vos
-El puerto `IPaymentGateway` y entender por qué Stripe va detrás de una abstracción (testeo sin tocar Stripe real). El webhook con **verificación de firma** es un buen ejercicio de seguridad.
+### 🔲 Pendiente
+- Configurar Stripe test keys (user-secrets: `Stripe:SecretKey`, `Stripe:WebhookSecret`).
+- Testear webhook con Stripe CLI (`stripe trigger payment_intent.succeeded`).
+- Integrar mensajería (inbox para `SeatReserved` + outbox para `PaymentSucceeded`/`PaymentFailed`).
 
 ---
 
-# Fase final — Comunicación RabbitMQ (la saga completa)
+# Fase final — Comunicación RabbitMQ (la saga completa) 🔲
 
-Recién cuando los 4 servicios funcionen solos (CRUD + DB), se integra la mensajería.
+**Estado: No implementado.** Todos los servicios funcionan solos (CRUD + DB). Falta integrar la mensajería.
 
 ### Flujo end-to-end de una reserva (coreografía)
 
@@ -197,6 +230,26 @@ Recién cuando los 4 servicios funcionen solos (CRUD + DB), se integra la mensaj
 3. **Topología RabbitMQ**: exchanges (topic), colas por servicio, routing keys por tipo de evento, dead-letter queues (DLQ).
 4. **Retry + DLQ**: reintentos con backoff y cola de mensajes muertos.
 
+### Orden de integración recomendado
+```
+1. Outbox table + publisher worker en BookingService
+   (publica SeatReserved, ReservationConfirmed, etc.)
+        ▼
+2. Inbox table + consumer en PaymentService
+   (consume SeatReserved → InitiatePayment)
+        ▼
+3. Outbox en PaymentService
+   (publica PaymentSucceeded, PaymentFailed)
+        ▼
+4. Inbox en BookingService
+   (consume PaymentSucceeded → Confirm, PaymentFailed → Cancel)
+        ▼
+5. Outbox en EventService (consume SeatReserved/Released)
+   + Outbox en BookingService (consume EventCreated)
+        ▼
+6. DLQ + retry en todos los servicios
+```
+
 ### 🎓 Para vos (concepto fundamental)
 Estudiá **eventual consistency** y por qué no podés usar una transacción ACID que abarque varios servicios. La saga + outbox + idempotencia es la respuesta de la industria a eso.
 
@@ -221,34 +274,41 @@ Estudiá **eventual consistency** y por qué no podés usar una transacción ACI
 ## Orden de implementación recomendado
 
 ```
-1. BuildingBlocks (Entity base, Result, contratos)   ← cimientos
+1. BuildingBlocks (Entity base, Result, contratos)   ✅ COMPLETADO
         ▼
-2. EventService (CRUD)        🎓 lo hacés vos (replicás User)
+2. UserService (CRUD)   ✅ COMPLETADO Y TESTEADO
         ▼
-3. BookingService (concurrencia + inventario)   🎓 mitad y mitad
+3. EventService (CRUD)   ✅ COMPLETADO (pendiente testing)
         ▼
-4. PaymentService (Stripe)
+4. BookingService (concurrencia + inventario)   ✅ COMPLETADO (pendiente testing)
         ▼
-5. RabbitMQ + Saga (integra los 4)   ← lo más complejo, al final
+5. PaymentService (Stripe)   ✅ COMPLETADO (pendiente testing con Stripe test keys)
+        ▼
+6. RabbitMQ + Outbox/Inbox   🔲 PRÓXIMO PASO
+        ▼
+7. Saga coreografía completa   🔲 DESPUÉS DEL 6
+        ▼
+8. API Gateway + Docker Compose   🔲 AL FINAL
 ```
 
 ---
 
-## Reparto (vos aprendés, yo acelero)
+## Reparto (completado / pendiente)
 
-| Parte | Quién | Por qué |
-|-------|-------|---------|
-| EventService completo | 🎓 **Vos** | Es CRUD, ya tenés el molde de User |
-| BuildingBlocks | Yo (o juntos) | Boilerplate técnico |
-| Booking: unique constraint + worker de expiración | 🎓 **Vos** | El concepto clave de concurrencia |
-| Booking: capas Domain/App/Infra | Juntos | Saga es complejo |
-| Payment: puerto `IPaymentGateway` + webhook | 🎓 **Vos** | Aprendés abstracción de externos |
-| Stripe SDK integración | Yo | Boilerplate del SDK |
-| Outbox + Inbox + RabbitMQ topología | Juntos | Lo más difícil, mejor en pareja |
+| Parte | Estado | Notas |
+|-------|--------|-------|
+| BuildingBlocks | ✅ Completado | Entity, AggregateRoot, IDomainEvent, DomainException |
+| UserService completo | ✅ Completado y testeado | Molde de referencia |
+| EventService completo | ✅ Completado | Pendiente testing individual |
+| BookingService completo | ✅ Completado | Unique constraint + background worker |
+| PaymentService completo | ✅ Completado | Stripe SDK + webhook verification |
+| Outbox + Inbox + RabbitMQ topología | 🔲 Próximo | Integrar mensajería en los 4 servicios |
+| API Gateway | 🔲 Pendiente | HTTP síncrono hacia afuera |
+| Docker Compose | 🔲 Pendiente | Postgres + RabbitMQ + servicios |
 
 ---
 
-## Recordatorios técnicos (aprendidos en UserService)
+## Recordatorios técnicos (aprendidos)
 
 - **.NET 10**, solución en formato nuevo `.slnx`.
 - Estructura: `.slnx` en la raíz del servicio, 4 proyectos bajo `src/`.
@@ -259,5 +319,6 @@ Estudiá **eventual consistency** y por qué no podés usar una transacción ACI
 - Manejo de errores de dominio → `IExceptionHandler` que mapea a `ProblemDetails` (RFC 7807).
 - Connection strings y secretos: **fuera del repo** (user-secrets / variables de entorno) para producción.
 - EF tools: alinear versiones de paquetes EF Core para evitar warnings de conflicto.
-```
+- `Microsoft.EntityFrameworkCore.Design` con `PrivateAssets=all` → ejecutar `dotnet ef` desde el proyecto Infrastructure, no desde la API.
+- `dotnet-tools.json` en la raíz del servicio para `dotnet-ef` local (no global).
 
