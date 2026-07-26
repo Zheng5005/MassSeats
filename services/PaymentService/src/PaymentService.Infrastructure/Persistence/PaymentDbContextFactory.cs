@@ -13,7 +13,7 @@ public sealed class PaymentDbContextFactory : IDesignTimeDbContextFactory<Paymen
     public PaymentDbContext CreateDbContext(string[] args)
     {
         var options = new DbContextOptionsBuilder<PaymentDbContext>()
-            .UseNpgsql("Host=localhost;Port=5432;Database=paymentservice;Username=postgres;Password=postgres")
+            .UseNpgsql("Host=localhost;Port=5432;Username=postgres;Password=123456;Database=paymentservice")
             .Options;
 
         return new PaymentDbContext(options);

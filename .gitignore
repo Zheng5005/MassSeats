@@ -1,1 +1,6 @@
 .atl/
+
+# Local environment config (connection strings, secrets)
+.env
+.env.*
+!.env.example
