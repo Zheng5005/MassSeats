@@ -2,5 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/BuildingBlocks.Domain/BuildingBlocks.Domain.csproj" />
     <Project Path="src/BuildingBlocks.Messaging/BuildingBlocks.Messaging.csproj" />
+    <Project Path="src/BuildingBlocks.Messaging.RabbitMQ/BuildingBlocks.Messaging.RabbitMQ.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BuildingBlocks.Messaging.RabbitMQ.Tests/BuildingBlocks.Messaging.RabbitMQ.Tests.csproj" />
   </Folder>
 </Solution>
