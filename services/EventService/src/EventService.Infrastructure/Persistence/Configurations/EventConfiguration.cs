@@ -44,6 +44,9 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<Event>
         builder.Property(e => e.TotalSeats)
             .HasColumnName("total_seats");
 
+        builder.Property(e => e.AvailableSeats)
+            .HasColumnName("available_seats");
+
         builder.Property(e => e.BannerImage)
             .HasColumnName("banner_image");
 
@@ -65,5 +68,7 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<Event>
             .WithMany()
             .HasForeignKey(e => e.VenueId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Ignore(e => e.DomainEvents);
     }
 }

@@ -18,6 +18,7 @@ internal static class EventMappings
         @event.EventDate,
         @event.TicketPrice,
         @event.TotalSeats,
+        @event.AvailableSeats,
         @event.BannerImage,
         @event.CreatedAt,
         @event.UpdatedAt);

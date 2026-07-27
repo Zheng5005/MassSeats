@@ -12,6 +12,7 @@ public sealed record EventResponse(
     DateTimeOffset EventDate,
     decimal TicketPrice,
     int TotalSeats,
+    int AvailableSeats,
     string? BannerImage,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

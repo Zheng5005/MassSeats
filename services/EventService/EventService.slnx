@@ -5,4 +5,7 @@
     <Project Path="src/EventService.Domain/EventService.Domain.csproj" />
     <Project Path="src/EventService.Infrastructure/EventService.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EventService.Domain.Tests/EventService.Domain.Tests.csproj" />
+  </Folder>
 </Solution>

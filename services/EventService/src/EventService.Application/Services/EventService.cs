@@ -92,6 +92,7 @@ public sealed class EventAppService : IEventService
         var @event = await _repository.GetByIdAsync(id, ct)
                      ?? throw new EventNotFoundException(id);
 
+        @event.Cancel();
         _repository.Remove(@event);
         await _repository.SaveChangesAsync(ct);
     }

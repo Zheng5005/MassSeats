@@ -1,4 +1,5 @@
 using BuildingBlocks.Domain;
+using EventService.Domain.Events;
 using EventService.Domain.Exceptions;
 
 namespace EventService.Domain.Entities;
@@ -17,6 +18,7 @@ public class Event : AggregateRoot
     public DateTimeOffset EventDate { get; private set; }
     public decimal TicketPrice { get; private set; }
     public int TotalSeats { get; private set; }
+    public int AvailableSeats { get; private set; }
     public string? BannerImage { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -48,6 +50,7 @@ public class Event : AggregateRoot
         EventDate = eventDate;
         TicketPrice = ticketPrice;
         TotalSeats = totalSeats;
+        AvailableSeats = totalSeats;
         BannerImage = bannerImage;
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
@@ -78,7 +81,7 @@ public class Event : AggregateRoot
         if (eventDate <= now)
             throw new EventDateInThePastException(eventDate);
 
-        return new Event(
+        var @event = new Event(
             id: Guid.NewGuid(),
             title: title.Trim(),
             description: description?.Trim(),
@@ -90,6 +93,16 @@ public class Event : AggregateRoot
             bannerImage: bannerImage?.Trim(),
             createdAt: now,
             updatedAt: now);
+
+        @event.RaiseDomainEvent(new EventCreatedDomainEvent(
+            @event.Id,
+            @event.Title,
+            @event.VenueId,
+            @event.CategoryId,
+            @event.EventDate,
+            @event.TotalSeats));
+
+        return @event;
     }
 
     public void UpdateDetails(string title, string? description, Guid categoryId, Guid venueId, DateTimeOffset eventDate)
@@ -105,6 +118,8 @@ public class Event : AggregateRoot
         VenueId = venueId;
         EventDate = eventDate;
         Touch();
+
+        RaiseDomainEvent(new EventUpdatedDomainEvent(Id, Title, EventDate, TotalSeats));
     }
 
     public void UpdatePricing(decimal ticketPrice)
@@ -121,6 +136,26 @@ public class Event : AggregateRoot
         BannerImage = bannerImage?.Trim();
         Touch();
     }
+
+    public void DecrementAvailability()
+    {
+        if (AvailableSeats <= 0)
+            throw new DomainValidationException("No seats are available for this event.");
+
+        AvailableSeats--;
+        Touch();
+    }
+
+    public void ReleaseSeat()
+    {
+        if (AvailableSeats >= TotalSeats)
+            throw new DomainValidationException("Available seats cannot exceed total seats.");
+
+        AvailableSeats++;
+        Touch();
+    }
+
+    public void Cancel() => RaiseDomainEvent(new EventCancelledDomainEvent(Id));
 
     private void Touch() => UpdatedAt = DateTimeOffset.UtcNow;
 }
