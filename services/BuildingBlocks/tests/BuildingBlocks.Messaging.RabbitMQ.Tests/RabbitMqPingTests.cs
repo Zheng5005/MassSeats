@@ -23,7 +23,7 @@ public sealed class RabbitMqPingTests
         await host.StartAsync(cancellationToken);
 
         var publisher = host.Services.GetRequiredService<IEventPublisher>();
-        await Assert.ThrowsAsync<PublishException>(() =>
+        await Assert.ThrowsAsync<PublishReturnException>(() =>
             publisher.PublishAsync(new UnroutablePingEvent(), cancellationToken));
 
         await host.StopAsync(cancellationToken);
