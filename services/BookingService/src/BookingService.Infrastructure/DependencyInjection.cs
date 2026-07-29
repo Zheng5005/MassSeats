@@ -1,6 +1,8 @@
 using BookingService.Domain.Interfaces;
 using BookingService.Infrastructure.BackgroundJobs;
+using BookingService.Infrastructure.Messaging;
 using BookingService.Infrastructure.Persistence;
+using BuildingBlocks.Messaging.RabbitMQ;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,12 +22,18 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("BookingDb")
             ?? throw new InvalidOperationException("Connection string 'BookingDb' is not configured.");
 
-        services.AddDbContext<BookingDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        services.AddSingleton<OutboxSaveChangesInterceptor>();
+
+        services.AddDbContext<BookingDbContext>((serviceProvider, options) =>
+            options
+                .UseNpgsql(connectionString)
+                .AddInterceptors(serviceProvider.GetRequiredService<OutboxSaveChangesInterceptor>()));
 
         services.AddScoped<IReservationRepository, ReservationRepository>();
 
+        services.AddRabbitMqMessaging(configuration);
         services.AddHostedService<ReservationExpirationWorker>();
+        services.AddHostedService<OutboxPublisherWorker>();
 
         return services;
     }

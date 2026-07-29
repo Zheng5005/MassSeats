@@ -1,4 +1,5 @@
 using BookingService.Domain.Entities;
+using BookingService.Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookingService.Infrastructure.Persistence;
@@ -8,6 +9,7 @@ public sealed class BookingDbContext : DbContext
     public BookingDbContext(DbContextOptions<BookingDbContext> options) : base(options) { }
 
     public DbSet<Reservation> Reservations => Set<Reservation>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

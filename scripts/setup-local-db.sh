@@ -20,11 +20,12 @@ fi
 # Read .env (ignore comments and empty lines)
 while IFS='=' read -r key value; do
   [[ -z "$key" || "$key" =~ ^# ]] && continue
-  # Trim whitespace
   key="$(echo "$key" | xargs)"
   value="$(echo "$value" | xargs)"
   export "$key=$value"
 done < "$ENV_FILE"
+
+# ── 1. PostgreSQL connection strings ────────────────────────────────
 
 if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
   echo "ERROR: POSTGRES_PASSWORD is not set in .env"
@@ -33,56 +34,50 @@ fi
 
 CONN_STRING="Host=${POSTGRES_HOST:-localhost};Port=${POSTGRES_PORT:-5432};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}"
 
-echo "Using connection string components:"
+echo "PostgreSQL:"
 echo "  Host:     ${POSTGRES_HOST:-localhost}"
 echo "  Port:     ${POSTGRES_PORT:-5432}"
 echo "  User:     ${POSTGRES_USER:-postgres}"
 echo "  Password: ****"
-echo ""
 
-# Service name → database name mapping
-declare -A SERVICES=(
-  ["UserService"]="userservice"
-  ["EventService"]="eventservice"
-  ["BookingService"]="bookingservice"
-  ["PaymentService"]="paymentservice"
+# Service → database name
+declare -A DB_NAMES=(
+  [UserService]="userservice"
+  [EventService]="eventservice"
+  [BookingService]="bookingservice"
+  [PaymentService]="paymentservice"
 )
 
-# Connection string key name per service (matches appsettings.json keys)
+# Connection string key per service
 declare -A DB_KEYS=(
-  ["UserService"]="UserDb"
-  ["EventService"]="EventDb"
-  ["BookingService"]="BookingDb"
-  ["PaymentService"]="PaymentDb"
+  [UserService]="UserDb"
+  [EventService]="EventDb"
+  [BookingService]="BookingDb"
+  [PaymentService]="PaymentDb"
 )
 
-# Design-time factory context name (removes "Service" suffix)
+# Design-time factory context name
 declare -A CONTEXTS=(
-  ["UserService"]="User"
-  ["EventService"]="Event"
-  ["BookingService"]="Booking"
-  ["PaymentService"]="Payment"
+  [UserService]="User"
+  [EventService]="Event"
+  [BookingService]="Booking"
+  [PaymentService]="Payment"
 )
 
-UPDATED=0
-
-for SERVICE in "${!SERVICES[@]}"; do
-  DB_NAME="${SERVICES[$SERVICE]}"
+echo ""
+for SERVICE in "${!DB_NAMES[@]}"; do
+  DB_NAME="${DB_NAMES[$SERVICE]}"
   APPSETTINGS="$REPO_ROOT/services/$SERVICE/src/${SERVICE}.API/appsettings.json"
 
-  if [[ ! -f "$APPSETTINGS" ]]; then
-    echo "  SKIP  $SERVICE — appsettings.json not found"
-    continue
-  fi
+  [[ -f "$APPSETTINGS" ]] || { echo "  SKIP  $SERVICE — appsettings.json not found"; continue; }
 
   FULL_CONN="${CONN_STRING};Database=${DB_NAME}"
 
-  # Use python3 for reliable JSON manipulation (available on all dev machines)
   python3 -c "
 import json, sys
 
-path = sys.argv[1]
-conn = sys.argv[2]
+path = sys.argv[1]; conn = sys.argv[2]
+expected_key = sys.argv[3]; service_upper = sys.argv[4]
 
 with open(path) as f:
     data = json.load(f)
@@ -90,11 +85,9 @@ with open(path) as f:
 if 'ConnectionStrings' not in data:
     data['ConnectionStrings'] = {}
 
-data['ConnectionStrings']['${DB_KEYS[$SERVICE]}'] = conn
+data['ConnectionStrings'][expected_key] = conn
 
-# Remove any stale keys from previous script runs (e.g. BOOKINGSERVICEDb)
-expected_key = '${DB_KEYS[$SERVICE]}'
-service_upper = '${SERVICE}'.upper()
+# Remove stale keys (e.g. BOOKINGSERVICEDb)
 for key in list(data['ConnectionStrings'].keys()):
     if key != expected_key and service_upper in key.upper():
         del data['ConnectionStrings'][key]
@@ -102,38 +95,93 @@ for key in list(data['ConnectionStrings'].keys()):
 with open(path, 'w') as f:
     json.dump(data, f, indent=2)
     f.write('\n')
-" "$APPSETTINGS" "$FULL_CONN"
+" "$APPSETTINGS" "$FULL_CONN" "${DB_KEYS[$SERVICE]}" "${SERVICE^^}"
 
-  echo "  OK    $SERVICE → $APPSETTINGS"
-  UPDATED=$((UPDATED + 1))
+  echo "  DB    $SERVICE → ${DB_KEYS[$SERVICE]}"
 
-  # Also update the design-time factory (used by `dotnet ef` CLI)
+  # Design-time factory
   CTX="${CONTEXTS[$SERVICE]}"
   FACTORY="$REPO_ROOT/services/$SERVICE/src/${SERVICE}.Infrastructure/Persistence/${CTX}DbContextFactory.cs"
-
   if [[ -f "$FACTORY" ]]; then
-    # Replace the UseNpgsql("...") connection string
     python3 -c "
 import re, sys
 
-path = sys.argv[1]
-conn = sys.argv[2]
-
+path = sys.argv[1]; conn = sys.argv[2]
 with open(path) as f:
     content = f.read()
-
-# Match UseNpgsql(\"...\") and replace the connection string inside
 pattern = r'(UseNpgsql\(\")([^\"]*)(\"\))'
-replacement = r'\g<1>' + conn + r'\3'
-new_content = re.sub(pattern, replacement, content)
-
+new_content = re.sub(pattern, r'\g<1>' + conn + r'\3', content)
 with open(path, 'w') as f:
     f.write(new_content)
 " "$FACTORY" "$FULL_CONN"
-    echo "  OK    $SERVICE → $FACTORY (design-time)"
+    echo "  FACT  $SERVICE → design-time factory"
   fi
 done
 
+# ── 2. RabbitMQ configuration ───────────────────────────────────────
+
+RABBIT_HOST="${RABBITMQ_HOST:-localhost}"
+RABBIT_PORT="${RABBITMQ_PORT:-5672}"
+RABBIT_USER="${RABBITMQ_USER:-guest}"
+RABBIT_PASS="${RABBITMQ_PASSWORD:-guest}"
+
 echo ""
-echo "Updated $UPDATED services. Connection strings are ready."
+echo "RabbitMQ:"
+echo "  Host:     $RABBIT_HOST"
+echo "  Port:     $RABBIT_PORT"
+echo "  User:     $RABBIT_USER"
+echo "  Password: ****"
+
+# Queue names per service (architecture topology, not secrets)
+declare -A QUEUE_NAMES=(
+  [BookingService]="booking.queue"
+  [EventService]="event.queue"
+  [PaymentService]="payment.queue"
+)
+
+# Services that need RabbitMQ config (UserService does NOT participate)
+RABBIT_SERVICES=("BookingService" "EventService" "PaymentService")
+
+for SERVICE in "${RABBIT_SERVICES[@]}"; do
+  APPSETTINGS="$REPO_ROOT/services/$SERVICE/src/${SERVICE}.API/appsettings.json"
+
+  [[ -f "$APPSETTINGS" ]] || { echo "  SKIP  $SERVICE — appsettings.json not found"; continue; }
+
+  QNAME="${QUEUE_NAMES[$SERVICE]}"
+
+  python3 -c "
+import json, sys
+
+path = sys.argv[1]
+host = sys.argv[2]
+port = int(sys.argv[3])
+user = sys.argv[4]
+password = sys.argv[5]
+qname = sys.argv[6]
+
+with open(path) as f:
+    data = json.load(f)
+
+data['RabbitMq'] = {
+    'Host': host,
+    'Port': port,
+    'UserName': user,
+    'Password': password,
+    'VirtualHost': '/',
+    'ExchangeName': 'massseats.events',
+    'DeadLetterExchangeName': 'massseats.events.dead-letter',
+    'QueueName': qname,
+    'PrefetchCount': 16
+}
+
+with open(path, 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+" "$APPSETTINGS" "$RABBIT_HOST" "$RABBIT_PORT" "$RABBIT_USER" "$RABBIT_PASS" "$QNAME"
+
+  echo "  RMQ   $SERVICE → $QNAME"
+done
+
+echo ""
+echo "Done. Settings propagated to all services."
 echo "Run 'dotnet run --project services/<Service>/src/<Service>.API' to start."
