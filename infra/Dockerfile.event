@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /app
+
+COPY services/BuildingBlocks/src/BuildingBlocks.Domain/BuildingBlocks.Domain.csproj services/BuildingBlocks/src/BuildingBlocks.Domain/
+COPY services/EventService/src/EventService.Domain/EventService.Domain.csproj services/EventService/src/EventService.Domain/
+COPY services/EventService/src/EventService.Application/EventService.Application.csproj services/EventService/src/EventService.Application/
+COPY services/EventService/src/EventService.Infrastructure/EventService.Infrastructure.csproj services/EventService/src/EventService.Infrastructure/
+COPY services/EventService/src/EventService.API/EventService.API.csproj services/EventService/src/EventService.API/
+
+RUN dotnet restore services/EventService/src/EventService.API/EventService.API.csproj
+
+COPY . .
+
+RUN dotnet publish services/EventService/src/EventService.API/EventService.API.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "EventService.API.dll"]

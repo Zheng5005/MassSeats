@@ -1,0 +1,58 @@
+services:
+
+  massseats-db:
+    ports:
+      - "5432:5432"
+
+  massseats-rabbitmq:
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  massseats-booking:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    volumes:
+      - .:/app
+    working_dir: /app/services/BookingService/src/BookingService.API
+    entrypoint:
+      - dotnet
+      - watch
+      - run
+      - --no-launch-profile
+
+  massseats-event:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    volumes:
+      - .:/app
+    working_dir: /app/services/EventService/src/EventService.API
+    entrypoint:
+      - dotnet
+      - watch
+      - run
+      - --no-launch-profile
+
+  massseats-payment:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    volumes:
+      - .:/app
+    working_dir: /app/services/PaymentService/src/PaymentService.API
+    entrypoint:
+      - dotnet
+      - watch
+      - run
+      - --no-launch-profile
+
+  massseats-user:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    volumes:
+      - .:/app
+    working_dir: /app/services/UserService/src/UserService.API
+    entrypoint:
+      - dotnet
+      - watch
+      - run
+      - --no-launch-profile

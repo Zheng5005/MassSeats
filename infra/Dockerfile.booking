@@ -1,0 +1,22 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /app
+
+COPY services/BuildingBlocks/src/BuildingBlocks.Domain/BuildingBlocks.Domain.csproj services/BuildingBlocks/src/BuildingBlocks.Domain/
+COPY services/BuildingBlocks/src/BuildingBlocks.Messaging/BuildingBlocks.Messaging.csproj services/BuildingBlocks/src/BuildingBlocks.Messaging/
+COPY services/BuildingBlocks/src/BuildingBlocks.Messaging.RabbitMQ/BuildingBlocks.Messaging.RabbitMQ.csproj services/BuildingBlocks/src/BuildingBlocks.Messaging.RabbitMQ/
+COPY services/BookingService/src/BookingService.Domain/BookingService.Domain.csproj services/BookingService/src/BookingService.Domain/
+COPY services/BookingService/src/BookingService.Application/BookingService.Application.csproj services/BookingService/src/BookingService.Application/
+COPY services/BookingService/src/BookingService.Infrastructure/BookingService.Infrastructure.csproj services/BookingService/src/BookingService.Infrastructure/
+COPY services/BookingService/src/BookingService.API/BookingService.API.csproj services/BookingService/src/BookingService.API/
+
+RUN dotnet restore services/BookingService/src/BookingService.API/BookingService.API.csproj
+
+COPY . .
+
+RUN dotnet publish services/BookingService/src/BookingService.API/BookingService.API.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "BookingService.API.dll"]

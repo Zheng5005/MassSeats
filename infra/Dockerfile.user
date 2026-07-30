@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /app
+
+COPY services/BuildingBlocks/src/BuildingBlocks.Domain/BuildingBlocks.Domain.csproj services/BuildingBlocks/src/BuildingBlocks.Domain/
+COPY services/UserService/src/UserService.Domain/UserService.Domain.csproj services/UserService/src/UserService.Domain/
+COPY services/UserService/src/UserService.Application/UserService.Application.csproj services/UserService/src/UserService.Application/
+COPY services/UserService/src/UserService.Infrastructure/UserService.Infrastructure.csproj services/UserService/src/UserService.Infrastructure/
+COPY services/UserService/src/UserService.API/UserService.API.csproj services/UserService/src/UserService.API/
+
+RUN dotnet restore services/UserService/src/UserService.API/UserService.API.csproj
+
+COPY . .
+
+RUN dotnet publish services/UserService/src/UserService.API/UserService.API.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "UserService.API.dll"]

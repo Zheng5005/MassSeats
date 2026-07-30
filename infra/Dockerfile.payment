@@ -1,0 +1,22 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /app
+
+COPY services/BuildingBlocks/src/BuildingBlocks.Domain/BuildingBlocks.Domain.csproj services/BuildingBlocks/src/BuildingBlocks.Domain/
+COPY services/BuildingBlocks/src/BuildingBlocks.Messaging/BuildingBlocks.Messaging.csproj services/BuildingBlocks/src/BuildingBlocks.Messaging/
+COPY services/BuildingBlocks/src/BuildingBlocks.Messaging.RabbitMQ/BuildingBlocks.Messaging.RabbitMQ.csproj services/BuildingBlocks/src/BuildingBlocks.Messaging.RabbitMQ/
+COPY services/PaymentService/src/PaymentService.Domain/PaymentService.Domain.csproj services/PaymentService/src/PaymentService.Domain/
+COPY services/PaymentService/src/PaymentService.Application/PaymentService.Application.csproj services/PaymentService/src/PaymentService.Application/
+COPY services/PaymentService/src/PaymentService.Infrastructure/PaymentService.Infrastructure.csproj services/PaymentService/src/PaymentService.Infrastructure/
+COPY services/PaymentService/src/PaymentService.API/PaymentService.API.csproj services/PaymentService/src/PaymentService.API/
+
+RUN dotnet restore services/PaymentService/src/PaymentService.API/PaymentService.API.csproj
+
+COPY . .
+
+RUN dotnet publish services/PaymentService/src/PaymentService.API/PaymentService.API.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "PaymentService.API.dll"]

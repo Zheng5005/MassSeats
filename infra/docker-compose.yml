@@ -1,0 +1,119 @@
+volumes:
+  pgdata:
+  rabbitmq_data:
+
+services:
+
+  massseats-db:
+    image: postgres:17-alpine
+    container_name: massseats-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432"
+
+  massseats-rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: massseats-rabbitmq
+    ports:
+      - "5672"
+      - "15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  massseats-booking:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.booking
+    container_name: massseats-booking
+    ports:
+      - "5281:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__BookingDb: Host=massseats-db;Port=5432;Database=bookingservice;Username=postgres;Password=postgres
+      RabbitMq__Host: massseats-rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__UserName: guest
+      RabbitMq__Password: guest
+      RabbitMq__QueueName: booking.queue
+    depends_on:
+      massseats-db:
+        condition: service_healthy
+      massseats-rabbitmq:
+        condition: service_healthy
+
+  massseats-event:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.event
+    container_name: massseats-event
+    ports:
+      - "5144:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__EventDb: Host=massseats-db;Port=5432;Database=eventservice;Username=postgres;Password=postgres
+      RabbitMq__Host: massseats-rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__UserName: guest
+      RabbitMq__Password: guest
+      RabbitMq__QueueName: event.queue
+    depends_on:
+      massseats-db:
+        condition: service_healthy
+      massseats-rabbitmq:
+        condition: service_healthy
+
+  massseats-payment:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.payment
+    container_name: massseats-payment
+    ports:
+      - "5002:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__PaymentDb: Host=massseats-db;Port=5432;Database=paymentservice;Username=postgres;Password=postgres
+      RabbitMq__Host: massseats-rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__UserName: guest
+      RabbitMq__Password: guest
+      RabbitMq__QueueName: payment.queue
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      Payment__Currency: USD
+    depends_on:
+      massseats-db:
+        condition: service_healthy
+      massseats-rabbitmq:
+        condition: service_healthy
+
+  massseats-user:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.user
+    container_name: massseats-user
+    ports:
+      - "5026:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__UserDb: Host=massseats-db;Port=5432;Database=userservice;Username=postgres;Password=postgres
+    depends_on:
+      massseats-db:
+        condition: service_healthy
