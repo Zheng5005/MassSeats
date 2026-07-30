@@ -20,7 +20,11 @@ public sealed class StripePaymentGateway : IPaymentGateway
         _webhookSecret = options.WebhookSecret;
     }
 
-    public async Task<string> CreatePaymentIntentAsync(decimal amount, string currency, CancellationToken ct = default)
+    public async Task<string> CreatePaymentIntentAsync(
+        Guid bookingId,
+        decimal amount,
+        string currency,
+        CancellationToken ct = default)
     {
         var service = new PaymentIntentService(_client);
 
@@ -33,7 +37,12 @@ public sealed class StripePaymentGateway : IPaymentGateway
             Currency = currency.ToLowerInvariant(),
         };
 
-        var intent = await service.CreateAsync(options, cancellationToken: ct);
+        var requestOptions = new RequestOptions
+        {
+            IdempotencyKey = $"payment-intent:{bookingId:N}"
+        };
+
+        var intent = await service.CreateAsync(options, requestOptions, ct);
         return intent.Id;
     }
 

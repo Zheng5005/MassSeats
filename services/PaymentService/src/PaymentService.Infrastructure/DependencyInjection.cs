@@ -2,7 +2,10 @@ using PaymentService.Application.Interfaces;
 using PaymentService.Domain.Interfaces;
 using PaymentService.Infrastructure.Configuration;
 using PaymentService.Infrastructure.Gateways;
+using PaymentService.Infrastructure.Messaging;
 using PaymentService.Infrastructure.Persistence;
+using BuildingBlocks.Messaging.Contracts;
+using BuildingBlocks.Messaging.RabbitMQ;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +30,14 @@ public static class DependencyInjection
 
         services.AddScoped<IPaymentRepository, PaymentRepository>();
 
+        services.AddOptions<PaymentOptions>()
+            .Bind(configuration.GetSection("Payment"))
+            .Validate(
+                options => options.Currency is { Length: 3 } &&
+                    !string.IsNullOrWhiteSpace(options.Currency),
+                "Payment:Currency must be a three-letter ISO currency code.")
+            .ValidateOnStart();
+
         var stripeOptions = new StripeOptions
         {
             SecretKey = configuration["Stripe:SecretKey"]
@@ -36,6 +47,9 @@ public static class DependencyInjection
         };
         services.AddSingleton(stripeOptions);
         services.AddScoped<IPaymentGateway, StripePaymentGateway>();
+
+        services.AddRabbitMqMessaging(configuration);
+        services.AddEventConsumer<SeatReserved, SeatReservedConsumer>();
 
         return services;
     }

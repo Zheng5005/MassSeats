@@ -34,7 +34,7 @@ public sealed class PaymentAppService : IPaymentService
 
         // 1. Create the PaymentIntent in Stripe (external side effect first).
         var stripePaymentIntentId = await _gateway.CreatePaymentIntentAsync(
-            request.Amount, request.Currency, ct);
+            request.BookingId, request.Amount, request.Currency, ct);
 
         // 2. Create and persist the domain aggregate (Pending).
         var payment = Payment.Create(

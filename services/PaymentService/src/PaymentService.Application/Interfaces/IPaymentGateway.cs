@@ -9,6 +9,7 @@ public interface IPaymentGateway
 {
     /// <summary>Creates a PaymentIntent in Stripe and returns its ID.</summary>
     Task<string> CreatePaymentIntentAsync(
+        Guid bookingId,
         decimal amount,
         string currency,
         CancellationToken ct = default);
