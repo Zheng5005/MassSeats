@@ -96,6 +96,22 @@
       "sessions": 3,
       "memories": 2,
       "prompts": 0
+    },
+    {
+      "id": "0a6684d4",
+      "created_by": "zheng005",
+      "created_at": "2026-07-31T15:25:25Z",
+      "sessions": 1,
+      "memories": 1,
+      "prompts": 0
+    },
+    {
+      "id": "b01c7edd",
+      "created_by": "zheng005",
+      "created_at": "2026-07-31T16:08:53Z",
+      "sessions": 1,
+      "memories": 3,
+      "prompts": 1
     }
   ]
 }

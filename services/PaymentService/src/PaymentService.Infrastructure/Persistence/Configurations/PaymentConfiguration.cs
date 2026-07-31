@@ -44,6 +44,7 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasColumnName("status")
             .HasConversion<string>()
             .HasMaxLength(20)
+            .IsConcurrencyToken()
             .IsRequired();
 
         builder.Property(p => p.CreatedAt)

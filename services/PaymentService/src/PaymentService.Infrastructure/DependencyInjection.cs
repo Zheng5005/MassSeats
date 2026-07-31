@@ -25,8 +25,12 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("PaymentDb")
             ?? throw new InvalidOperationException("Connection string 'PaymentDb' is not configured.");
 
-        services.AddDbContext<PaymentDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        services.AddSingleton<OutboxSaveChangesInterceptor>();
+
+        services.AddDbContext<PaymentDbContext>((serviceProvider, options) =>
+            options
+                .UseNpgsql(connectionString)
+                .AddInterceptors(serviceProvider.GetRequiredService<OutboxSaveChangesInterceptor>()));
 
         services.AddScoped<IPaymentRepository, PaymentRepository>();
 
@@ -50,6 +54,7 @@ public static class DependencyInjection
 
         services.AddRabbitMqMessaging(configuration);
         services.AddEventConsumer<SeatReserved, SeatReservedConsumer>();
+        services.AddHostedService<OutboxPublisherWorker>();
 
         return services;
     }

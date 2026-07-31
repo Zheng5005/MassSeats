@@ -5,4 +5,7 @@
     <Project Path="src/BookingService.Infrastructure/BookingService.Infrastructure.csproj" />
     <Project Path="src/BookingService.API/BookingService.API.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BookingService.Infrastructure.Tests/BookingService.Infrastructure.Tests.csproj" />
+  </Folder>
 </Solution>

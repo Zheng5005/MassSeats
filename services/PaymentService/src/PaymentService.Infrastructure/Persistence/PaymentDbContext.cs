@@ -9,6 +9,7 @@ public sealed class PaymentDbContext : DbContext
 
     public DbSet<Domain.Entities.Payment> Payments => Set<Domain.Entities.Payment>();
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

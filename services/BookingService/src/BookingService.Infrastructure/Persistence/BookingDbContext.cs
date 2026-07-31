@@ -9,6 +9,7 @@ public sealed class BookingDbContext : DbContext
     public BookingDbContext(DbContextOptions<BookingDbContext> options) : base(options) { }
 
     public DbSet<Reservation> Reservations => Set<Reservation>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -2,6 +2,7 @@ using BookingService.Domain.Interfaces;
 using BookingService.Infrastructure.BackgroundJobs;
 using BookingService.Infrastructure.Messaging;
 using BookingService.Infrastructure.Persistence;
+using BuildingBlocks.Messaging.Contracts;
 using BuildingBlocks.Messaging.RabbitMQ;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +33,8 @@ public static class DependencyInjection
         services.AddScoped<IReservationRepository, ReservationRepository>();
 
         services.AddRabbitMqMessaging(configuration);
+        services.AddEventConsumer<PaymentSucceeded, PaymentSucceededConsumer>();
+        services.AddEventConsumer<PaymentFailed, PaymentFailedConsumer>();
         services.AddHostedService<ReservationExpirationWorker>();
         services.AddHostedService<OutboxPublisherWorker>();
 

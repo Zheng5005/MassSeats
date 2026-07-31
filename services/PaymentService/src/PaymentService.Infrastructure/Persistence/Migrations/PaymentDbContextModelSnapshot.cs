@@ -54,6 +54,7 @@ namespace PaymentService.Infrastructure.Persistence.Migrations
                         .HasColumnName("payment_method");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
@@ -99,6 +100,47 @@ namespace PaymentService.Infrastructure.Persistence.Migrations
                     b.HasKey("MessageId");
 
                     b.ToTable("inbox_messages", (string)null);
+                });
+
+            modelBuilder.Entity("PaymentService.Infrastructure.Messaging.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("content");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text")
+                        .HasColumnName("error");
+
+                    b.Property<DateTimeOffset>("OccurredOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_on");
+
+                    b.Property<DateTimeOffset?>("ProcessedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_on");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcessedOn", "OccurredOn")
+                        .HasDatabaseName("ix_outbox_messages_pending");
+
+                    b.ToTable("outbox_messages", (string)null);
                 });
 #pragma warning restore 612, 618
         }

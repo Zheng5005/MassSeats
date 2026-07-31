@@ -53,6 +53,7 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
             .HasColumnName("status")
             .HasConversion<string>()
             .HasMaxLength(20)
+            .IsConcurrencyToken()
             .IsRequired();
 
         builder.Property(r => r.PaymentId)
