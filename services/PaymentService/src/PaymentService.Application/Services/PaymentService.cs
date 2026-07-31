@@ -43,8 +43,22 @@ public sealed class PaymentAppService : IPaymentService
             request.Amount,
             request.Currency);
 
-        await _repository.AddAsync(payment, ct);
-        await _repository.SaveChangesAsync(ct);
+        try
+        {
+            await _repository.AddAsync(payment, ct);
+            await _repository.SaveChangesAsync(ct);
+        }
+        catch (DuplicatePaymentException)
+        {
+            // Lost a concurrent create race: another delivery already
+            // persisted the payment for this booking. Return the committed
+            // payment instead of surfacing the raw 23505 as a 500.
+            var committed = await _repository.GetByBookingIdAsync(request.BookingId, ct);
+            if (committed is not null)
+                return committed.ToResponse();
+
+            throw;
+        }
 
         return payment.ToResponse();
     }
