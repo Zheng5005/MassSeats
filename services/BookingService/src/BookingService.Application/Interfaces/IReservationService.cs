@@ -10,11 +10,11 @@ namespace BookingService.Application.Interfaces;
 public interface IReservationService
 {
     /// <summary>
-    /// Creates a Pending reservation. Seat uniqueness is enforced by a
-    /// database constraint; a clash surfaces as
-    /// <see cref="Domain.Exceptions.SeatAlreadyReservedException"/>.
+    /// Creates a Pending reservation for the given <paramref name="userId"/>.
+    /// Seat uniqueness is enforced by a database constraint; a clash
+    /// surfaces as <see cref="Domain.Exceptions.SeatAlreadyReservedException"/>.
     /// </summary>
-    Task<ReservationResponse> CreateAsync(CreateReservationRequest request, CancellationToken ct = default);
+    Task<ReservationResponse> CreateAsync(Guid userId, CreateReservationRequest request, CancellationToken ct = default);
 
     Task<ReservationResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
 

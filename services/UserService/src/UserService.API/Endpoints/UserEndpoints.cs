@@ -33,6 +33,12 @@ public static class UserEndpoints
             return Results.NoContent();
         });
 
+        group.MapPost("/login", async (LoginRequest request, IAuthService authService, CancellationToken ct) =>
+        {
+            var response = await authService.LoginAsync(request, ct);
+            return Results.Ok(response);
+        });
+
         return app;
     }
 }

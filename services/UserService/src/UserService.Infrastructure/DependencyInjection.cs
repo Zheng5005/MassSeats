@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Application.Interfaces;
 using UserService.Domain.Interfaces;
+using UserService.Infrastructure.Configuration;
 using UserService.Infrastructure.Persistence;
 using UserService.Infrastructure.Security;
 
@@ -26,6 +27,12 @@ public static class DependencyInjection
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
+
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .ValidateOnStart();
+
+        services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
 
         return services;
     }

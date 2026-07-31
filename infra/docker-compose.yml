@@ -34,6 +34,26 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  massseats-gateway:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.gateway
+    container_name: massseats-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      Jwt__SecretKey: "CHANGE-ME-to-a-secret-key-at-least-32-chars-long"
+      Jwt__Issuer: "MassSeats"
+      Jwt__Audience: "massseats-api"
+      Jwt__ExpiryMinutes: "60"
+    depends_on:
+      - massseats-booking
+      - massseats-event
+      - massseats-payment
+      - massseats-user
+
   massseats-booking:
     build:
       context: .
@@ -114,6 +134,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://0.0.0.0:8080
       ConnectionStrings__UserDb: Host=massseats-db;Port=5432;Database=userservice;Username=postgres;Password=postgres
+      Jwt__SecretKey: "CHANGE-ME-to-a-secret-key-at-least-32-chars-long"
+      Jwt__Issuer: "MassSeats"
+      Jwt__Audience: "massseats-api"
+      Jwt__ExpiryMinutes: "60"
     depends_on:
       massseats-db:
         condition: service_healthy

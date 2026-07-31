@@ -9,9 +9,13 @@ public static class ReservationEndpoints
     {
         var group = app.MapGroup("/reservations").WithTags("Reservations");
 
-        group.MapPost("/", async (CreateReservationRequest request, IReservationService service, CancellationToken ct) =>
+        group.MapPost("/", async (HttpContext httpContext, CreateReservationRequest request, IReservationService service, CancellationToken ct) =>
         {
-            var reservation = await service.CreateAsync(request, ct);
+            var userIdHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userIdHeader) || !Guid.TryParse(userIdHeader, out var userId))
+                return Results.Unauthorized();
+
+            var reservation = await service.CreateAsync(userId, request, ct);
             return Results.Created($"/reservations/{reservation.Id}", reservation);
         });
 

@@ -1,5 +1,9 @@
 .atl/
 
+# .NET build artifacts
+bin/
+obj/
+
 # Local environment config (connection strings, secrets)
 .env
 .env.*

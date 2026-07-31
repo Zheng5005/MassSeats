@@ -1,0 +1,9 @@
+# .NET build artifacts
+bin/
+obj/
+
+# IDE files
+*.user
+*.suo
+*.sln.docstates
+*.userprefs

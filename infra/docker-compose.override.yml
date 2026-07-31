@@ -9,6 +9,20 @@ services:
       - "5672:5672"
       - "15672:15672"
 
+  massseats-gateway:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    volumes:
+      - .:/app
+    working_dir: /app/gateway
+    entrypoint:
+      - dotnet
+      - watch
+      - run
+      - --no-launch-profile
+    ports:
+      - "8080:8080"
+
   massseats-booking:
     environment:
       ASPNETCORE_ENVIRONMENT: Development

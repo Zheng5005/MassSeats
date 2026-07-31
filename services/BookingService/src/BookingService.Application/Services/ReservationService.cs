@@ -24,10 +24,10 @@ public sealed class ReservationAppService : IReservationService
         _options = options;
     }
 
-    public async Task<ReservationResponse> CreateAsync(CreateReservationRequest request, CancellationToken ct = default)
+    public async Task<ReservationResponse> CreateAsync(Guid userId, CreateReservationRequest request, CancellationToken ct = default)
     {
         var reservation = Reservation.Create(
-            userId: request.UserId,
+            userId: userId,
             eventId: request.EventId,
             seatSection: request.SeatSection,
             seatRow: request.SeatRow,

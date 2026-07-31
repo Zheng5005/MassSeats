@@ -17,6 +17,7 @@ public sealed class DomainExceptionHandler : IExceptionHandler
     {
         var (status, title) = exception switch
         {
+            InvalidCredentialsException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
             UserNotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
             DuplicateEmailException => (StatusCodes.Status409Conflict, "Conflict"),
             DomainException => (StatusCodes.Status400BadRequest, "Domain rule violation"),
