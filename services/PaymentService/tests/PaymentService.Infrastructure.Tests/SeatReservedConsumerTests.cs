@@ -129,6 +129,7 @@ public sealed class SeatReservedConsumerTests
                 null,
                 "Pending",
                 DateTimeOffset.UtcNow,
+                null,
                 null));
         }
 

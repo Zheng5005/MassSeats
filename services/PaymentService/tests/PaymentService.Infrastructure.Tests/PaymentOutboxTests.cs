@@ -107,6 +107,70 @@ public sealed class PaymentOutboxTests
         Assert.Equal(nameof(PaymentSucceeded), message.Type);
     }
 
+    [Fact]
+    public async Task SaveChanges_WhenPaymentFails_PersistsFailureReason()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync(cancellationToken);
+        var options = new DbContextOptionsBuilder<PaymentDbContext>()
+            .UseSqlite(connection)
+            .AddInterceptors(new OutboxSaveChangesInterceptor())
+            .Options;
+
+        Guid paymentId;
+        await using (var setupContext = new PaymentDbContext(options))
+        {
+            await setupContext.Database.EnsureCreatedAsync(cancellationToken);
+            var payment = Payment.Create(
+                Guid.NewGuid(),
+                $"pi_test_{Guid.NewGuid():N}",
+                50m,
+                "USD");
+            setupContext.Payments.Add(payment);
+            await setupContext.SaveChangesAsync(cancellationToken);
+            paymentId = payment.Id;
+        }
+
+        await using (var failingContext = new PaymentDbContext(options))
+        {
+            var payment = await failingContext.Payments
+                .SingleAsync(item => item.Id == paymentId, cancellationToken);
+            payment.Fail("Card declined.");
+            await failingContext.SaveChangesAsync(cancellationToken);
+        }
+
+        await using var assertionContext = new PaymentDbContext(options);
+        var stored = await assertionContext.Payments
+            .SingleAsync(item => item.Id == paymentId, cancellationToken);
+        Assert.Equal("Card declined.", stored.FailureReason);
+    }
+
+    [Fact]
+    public async Task SaveChanges_WhenPaymentSucceeds_DoesNotPersistFailureReason()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync(cancellationToken);
+        var options = new DbContextOptionsBuilder<PaymentDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var dbContext = new PaymentDbContext(options);
+        await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+        var payment = Payment.Create(
+            Guid.NewGuid(),
+            $"pi_test_{Guid.NewGuid():N}",
+            50m,
+            "USD");
+        dbContext.Payments.Add(payment);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        payment.Succeed("card");
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        Assert.Null(payment.FailureReason);
+    }
+
     private static TEvent Deserialize<TEvent>(string content) =>
         JsonSerializer.Deserialize<TEvent>(content, new JsonSerializerOptions(JsonSerializerDefaults.Web))
         ?? throw new JsonException($"Could not deserialize {typeof(TEvent).Name}.");

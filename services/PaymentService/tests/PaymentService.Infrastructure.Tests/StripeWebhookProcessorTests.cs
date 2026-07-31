@@ -129,7 +129,8 @@ public sealed class StripeWebhookProcessorTests
             "card",
             "Succeeded",
             DateTimeOffset.UtcNow,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            null);
 
         public Task<PaymentResponse> InitiateAsync(
             InitiatePaymentRequest request,

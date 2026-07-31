@@ -12,4 +12,5 @@ public sealed record PaymentResponse(
     string? PaymentMethod,
     string Status,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    string? FailureReason);

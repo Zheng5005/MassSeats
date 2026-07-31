@@ -18,6 +18,7 @@ public sealed class Payment : AggregateRoot
     public decimal Amount { get; private set; }
     public string Currency { get; private set; }
     public string? PaymentMethod { get; private set; }
+    public string? FailureReason { get; private set; }
     public PaymentStatus Status { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? UpdatedAt { get; private set; }
@@ -98,6 +99,7 @@ public sealed class Payment : AggregateRoot
         if (string.IsNullOrWhiteSpace(reason))
             throw new DomainValidationException("A failure reason is required.");
 
+        FailureReason = reason.Trim();
         Status = PaymentStatus.Failed;
         UpdatedAt = DateTimeOffset.UtcNow;
 

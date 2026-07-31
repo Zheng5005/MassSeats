@@ -18,5 +18,6 @@ internal static class PaymentMappings
         payment.PaymentMethod,
         payment.Status.ToString(),
         payment.CreatedAt,
-        payment.UpdatedAt);
+        payment.UpdatedAt,
+        payment.FailureReason);
 }

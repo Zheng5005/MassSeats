@@ -40,6 +40,10 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasColumnName("payment_method")
             .HasMaxLength(50);
 
+        builder.Property(p => p.FailureReason)
+            .HasColumnName("failure_reason")
+            .HasMaxLength(500);
+
         builder.Property(p => p.Status)
             .HasColumnName("status")
             .HasConversion<string>()
