@@ -56,6 +56,8 @@ public static class DependencyInjection
         services.AddEventConsumer<SeatReserved, SeatReservedConsumer>();
         services.AddHostedService<OutboxPublisherWorker>();
 
+        services.AddScoped<StripeWebhookProcessor>();
+
         return services;
     }
 }

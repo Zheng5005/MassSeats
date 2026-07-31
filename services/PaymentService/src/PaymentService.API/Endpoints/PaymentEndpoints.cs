@@ -1,4 +1,5 @@
 using PaymentService.Application.Interfaces;
+using PaymentService.Infrastructure.Messaging;
 
 namespace PaymentService.API.Endpoints;
 
@@ -18,7 +19,7 @@ public static class PaymentEndpoints
         // the RAW request body, so we read the body ourselves instead of
         // binding a DTO — deserializing first would change the bytes and
         // break signature verification.
-        group.MapPost("/webhook", async (HttpRequest request, IPaymentGateway gateway, IPaymentService service, CancellationToken ct) =>
+        group.MapPost("/webhook", async (HttpRequest request, IPaymentGateway gateway, StripeWebhookProcessor processor, CancellationToken ct) =>
         {
             using var reader = new StreamReader(request.Body);
             var rawBody = await reader.ReadToEndAsync(ct);
@@ -30,8 +31,8 @@ public static class PaymentEndpoints
             if (webhookEvent is null)
                 return Results.BadRequest("Invalid webhook signature.");
 
-            var payment = await service.HandleWebhookAsync(webhookEvent, ct);
-            return Results.Ok(payment);
+            var payment = await processor.ProcessAsync(webhookEvent, ct);
+            return payment is null ? Results.Ok() : Results.Ok(payment);
         });
 
         return app;
