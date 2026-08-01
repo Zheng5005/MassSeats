@@ -10,6 +10,7 @@ namespace EventService.Domain.Interfaces;
 public interface IEventRepository
 {
     Task<Event?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<Event?> GetByIdForUpdateAsync(Guid id, CancellationToken ct = default);
     Task<List<Event>> GetAllAsync(CancellationToken ct = default);
     Task<List<Category>> GetCategoriesAsync(CancellationToken ct = default);
     Task<bool> TitleExistsAsync(string title, CancellationToken ct = default);

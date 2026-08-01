@@ -1,5 +1,8 @@
 using EventService.Domain.Interfaces;
+using EventService.Infrastructure.Messaging;
 using EventService.Infrastructure.Persistence;
+using BuildingBlocks.Messaging.Contracts;
+using BuildingBlocks.Messaging.RabbitMQ;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,11 +22,22 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("EventDb")
             ?? throw new InvalidOperationException("Connection string 'EventDb' is not configured.");
 
-        services.AddDbContext<EventDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        services.AddSingleton<OutboxSaveChangesInterceptor>();
+
+        services.AddDbContext<EventDbContext>((serviceProvider, options) =>
+            options
+                .UseNpgsql(connectionString)
+                .AddInterceptors(serviceProvider.GetRequiredService<OutboxSaveChangesInterceptor>()));
 
         services.AddScoped<IEventRepository, EventRepository>();
         services.AddScoped<IVenueRepository, VenueRepository>();
+
+        services.AddRabbitMqMessaging(configuration);
+        services.AddEventConsumer<SeatReserved, SeatReservedConsumer>();
+        services.AddEventConsumer<ReservationConfirmed, ReservationConfirmedConsumer>();
+        services.AddEventConsumer<ReservationCancelled, ReservationCancelledConsumer>();
+        services.AddEventConsumer<ReservationExpired, ReservationExpiredConsumer>();
+        services.AddHostedService<OutboxPublisherWorker>();
 
         return services;
     }

@@ -68,7 +68,6 @@ public sealed class EventAppService : IEventService
             request.VenueId,
             request.EventDate);
 
-        _repository.Update(@event);
         await _repository.SaveChangesAsync(ct);
 
         return @event.ToResponse();
@@ -81,10 +80,27 @@ public sealed class EventAppService : IEventService
 
         @event.UpdatePricing(request.TicketPrice);
 
-        _repository.Update(@event);
         await _repository.SaveChangesAsync(ct);
 
         return @event.ToResponse();
+    }
+
+    public async Task DecrementAvailabilityAsync(Guid id, CancellationToken ct = default)
+    {
+        var @event = await _repository.GetByIdForUpdateAsync(id, ct)
+                     ?? throw new EventNotFoundException(id);
+
+        @event.DecrementAvailability();
+        await _repository.SaveChangesAsync(ct);
+    }
+
+    public async Task ReleaseSeatAsync(Guid id, CancellationToken ct = default)
+    {
+        var @event = await _repository.GetByIdForUpdateAsync(id, ct)
+                     ?? throw new EventNotFoundException(id);
+
+        @event.ReleaseSeat();
+        await _repository.SaveChangesAsync(ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)

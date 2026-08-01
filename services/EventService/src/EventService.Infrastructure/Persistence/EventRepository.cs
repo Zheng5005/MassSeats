@@ -13,6 +13,18 @@ public sealed class EventRepository : IEventRepository
     public Task<Event?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         _context.Events.FirstOrDefaultAsync(e => e.Id == id, ct);
 
+    public Task<Event?> GetByIdForUpdateAsync(Guid id, CancellationToken ct = default)
+    {
+        if (_context.Database.IsNpgsql())
+        {
+            return _context.Events
+                .FromSqlInterpolated($"SELECT * FROM events WHERE id = {id} FOR UPDATE")
+                .SingleOrDefaultAsync(ct);
+        }
+
+        return GetByIdAsync(id, ct);
+    }
+
     public Task<List<Event>> GetAllAsync(CancellationToken ct = default) =>
         _context.Events.AsNoTracking().ToListAsync(ct);
 

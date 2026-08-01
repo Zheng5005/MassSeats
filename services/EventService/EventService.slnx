@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/EventService.Domain.Tests/EventService.Domain.Tests.csproj" />
+    <Project Path="tests/EventService.Infrastructure.Tests/EventService.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

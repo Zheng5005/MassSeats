@@ -9,6 +9,8 @@ public interface IEventService
     Task<List<EventResponse>> GetAllAsync(CancellationToken ct = default);
     Task<EventResponse> UpdateAsync(Guid id, UpdateEventRequest request, CancellationToken ct = default);
     Task<EventResponse> UpdatePricingAsync(Guid id, UpdateEventPricingRequest request, CancellationToken ct = default);
+    Task DecrementAvailabilityAsync(Guid id, CancellationToken ct = default);
+    Task ReleaseSeatAsync(Guid id, CancellationToken ct = default);
     Task DeleteAsync(Guid id, CancellationToken ct = default);
     Task<List<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default);
 }
