@@ -2,10 +2,15 @@
 
 > Angular application for the MassSeats seat-reservation platform.
 > This plan covers **only what is buildable against the current backend state**:
-> all 4 services CRUD + JWT auth + API Gateway (YARP) + **messaging Phase 4 complete**
-> (Booking outbox → Payment inbox → Stripe webhook → PaymentSucceeded/Failed → Booking confirm/cancel).
-> Phases 5–7 of the messaging plan (Event consumers, retry/DLQ hardening, end-to-end
-> saga verification) are **NOT** done yet and are excluded from scope.
+> all 4 services CRUD + JWT auth + API Gateway (YARP) + **full messaging saga complete**
+> (fases 0–6 de MESSAGING_PLAN: RabbitMQ + Outbox/Inbox + Event consumers + retry/DLQ).
+> La fase 7 (prueba manual end-to-end con Stripe CLI) está verificada con la suite
+> automatizada 36/36 ✅; solo resta la validación manual con webhook real, que no
+> bloquea el frontend.
+>
+> **Estado del proyecto frontend (2026-08-02):** existe el scaffold base en
+> `frontend/` (Angular 22 + SSR + Tailwind 4 + vitest, solo `ng new` sin features).
+> NINGUNA fase de este plan está implementada todavía.
 
 ---
 
@@ -30,7 +35,7 @@
 | EventService | 5144 | CRUD events/venues, read-only categories. |
 | BookingService | 5281 | Reservations under `/booking/**` (gateway strips prefix). |
 | PaymentService | 5002 | Payments, Stripe webhook. |
-| PostgreSQL / RabbitMQ | 5432 / 5672 | Via docker-compose. |
+| PostgreSQL / RabbitMQ | 5432 / 5673 | RabbitMQ expuesto localmente en 5673 (ver `.env`); docker-compose interno usa 5672. |
 
 > **The frontend must always talk to the Gateway (`http://localhost:8080`), never to services directly.**
 
@@ -149,16 +154,27 @@ export interface Payment {
 | Capability | Why blocked | Unblocked by |
 |------------|-------------|--------------|
 | **In-browser Stripe checkout** | PaymentService creates the PaymentIntent server-side on `SeatReserved`; there is **no endpoint returning a `client_secret`** to the frontend. | A `GET /payments/{bookingId}/client-secret` (or similar) endpoint on PaymentService. |
-| **Live `availableSeats`** | Event consumers (`SeatReserved`, `Reservation*`) are messaging **Phase 5** — not wired. `AvailableSeats` stays `== TotalSeats`. | Messaging Phase 5. Until then, show `availableSeats` as informational only, with a "approximately/updated on sale" caveat. |
 | **"My reservations" list** | BookingService exposes only `GET /reservations/{id}`. There is no `GET /reservations?userId=...`. | New query endpoint on BookingService (or track ids client-side for now). |
 | **Category management** | EventService exposes only `GET /categories`. | New create/update/delete endpoints. |
 | **Role-based admin** | JWT carries no role claim; gateway authorizes any authenticated user for every mutation. | Add role claim to JWT + gateway policy. For now, gate "admin" pages behind auth only (documented limitation). |
 | **Reservation confirm action** | Confirmation is **event-driven** (`PaymentSucceeded` → Booking confirms). No manual confirm endpoint exists or is planned. | Nothing needed: UI only reflects the status. |
-| **Retry/DLQ observability** | Messaging Phase 6 not done. | Messaging Phase 6; would surface as admin tooling later. |
+| **Retry/DLQ observability (admin tooling)** | The messaging retry/DLQ is implemented (Phase 6 ✅) but it lives in RabbitMQ management UI; there is no API surface for the frontend to inspect it. | Ops tooling later (out of frontend scope for now). |
+
+> ✅ **Live `availableSeats` is now possible**: the messaging saga is complete
+> (fases 0–6), so EventService consumes `SeatReserved` / `Reservation*` and
+> `availableSeats` updates over time. It is an **eventually consistent**
+> informational reflection, not transactional truth — the UI should still show
+> a small caveat (see §7 Phase 2 and §8).
 
 ---
 
 ## 5. Angular project structure
+
+> Estado actual del repo: `frontend/` tiene el scaffold oficial generado por
+> `ng new` (Angular 22, SSR con `@angular/ssr`, Tailwind 4 vía PostCSS, vitest
+> como runner de tests, `src/main.ts` + `src/main.server.ts` + `src/server.ts`).
+> `src/app/app.ts` es el componente raíz placeholder; NO existe todavía la
+> estructura de features de abajo. Esta sección es la estructura objetivo.
 
 ```
 frontend/src/app/
@@ -249,7 +265,8 @@ Each phase is independently verifiable against the running stack (`docker compos
 - `catalog.api.ts`: `GET /events`, `GET /events/{id}`, `GET /venues`, `GET /venues/{id}`, `GET /categories`.
 - Event list page: cards with title, date, venue name (resolve via venue id), price, seats.
 - Event detail page: banner, description, venue/category info, price, seat info.
-  - `availableSeats` shows with the caveat that availability is eventually consistent (§4).
+  - `availableSeats` now updates over time (saga complete ✅) but is **eventually
+    consistent**; show a small "approximate / updates from booking events" caveat (§4).
 - Venue list/detail pages, category chips on the event list.
 
 **Verify:** browse events/venues; detail pages render real data.
@@ -283,6 +300,9 @@ Each phase is independently verifiable against the running stack (`docker compos
   - When `status === 'Pending'`, show "payment pending" + cancel button.
   - When `status === 'Confirmed'`, show confirmation (paymentId linked to payment status via `GET /payments/{paymentId}`).
 - Cancel button calls `DELETE /booking/reservations/{id}`.
+- Because the saga is complete, status will actually advance on its own
+  (`PaymentSucceeded` → `Confirmed`, `PaymentFailed`/expiry → `Cancelled`/`Expired`).
+  Recommend a small poll or manual refresh on the reservation page.
 
 **What the UI cannot do yet:** in-browser payment (no `client_secret` endpoint) — show status and explanatory copy instead (§4).
 
@@ -297,7 +317,7 @@ Each phase is independently verifiable against the running stack (`docker compos
 | HTTP wrapper | Single typed `api-client.ts` | One place for token/error handling |
 | State management | Angular signals + services; no NgRx | App is small; signals suffice |
 | Date handling | Keep ISO-8601 strings; format in `shared/utils` | Avoid timezone bugs from naive `Date` mutation |
-| Availability copy | "Approximate — updates from booking events" | Honest about eventual consistency until Phase 5 |
+| Availability copy | "Approximate — updates from booking events" | Honest about eventual consistency; the saga is live but not transactional truth |
 | Naming | PascalCase JSON kept as-is in TS models | Matches backend records 1:1, less mapping code |
 
 ---
@@ -310,11 +330,19 @@ These block future frontend work but are explicitly **not** part of this plan:
 2. **"My reservations" list** — needs `GET /reservations?userId=` on BookingService; until then the app tracks created reservation ids locally (best effort).
 3. **Role claims** — needs a role claim in the JWT + gateway policies before "admin" means anything.
 4. **Category admin** — needs create/update/delete endpoints on EventService.
-5. **Live availability** — messaging Phase 5 (Event consumers) + Phase 6 hardening.
+
+> ✅ **Resolved since this plan was written (2026-08-02):** "Live availability" is no
+> longer blocked — messaging phases 5–6 are implemented (Event consumers + retry/DLQ),
+> so `availableSeats` updates through the saga. The only remaining messaging gap is the
+> manual end-to-end verification with Stripe CLI (fase 7), which does not block the UI.
 
 ---
 
 ## 10. Checklist
+
+> Estado 2026-08-02: el scaffold Angular 22 existe en `frontend/` (SSR + Tailwind 4 +
+> vitest, componente raíz placeholder). Ninguna fase está implementada. **Siguiente
+> paso: Phase 1 — Foundation** (el backend no bloquea nada de esta fase).
 
 **Phase 1 — Foundation**
 - [ ] `api.config.ts` base URL from env

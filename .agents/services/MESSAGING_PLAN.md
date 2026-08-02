@@ -6,6 +6,10 @@
 >
 > Complemento de `BACKEND_PLAN.md`. Los 4 servicios ya funcionan solos
 > (CRUD + DB, probados). Este documento cubre SOLO la capa de mensajería.
+>
+> **Estado (actualizado 2026-08-02):** fases 0–6 IMPLEMENTADAS, fase 7
+> verificada con la suite de tests automatizados (36/36 ✅). Solo queda la
+> prueba manual end-to-end con Stripe CLI (ver sección 6, fase 7).
 
 ---
 
@@ -31,9 +35,9 @@ es soberano.
 
 | Contrato | Publica | Consumen |
 |----------|---------|----------|
-| `EventCreated` | Event | Booking |
-| `EventUpdated` | Event | Booking |
-| `EventCancelled` | Event | Booking |
+| `EventCreated` | Event | Booking *(opcional, réplica tardía — NO implementado)* |
+| `EventUpdated` | Event | Booking *(opcional, réplica tardía — NO implementado)* |
+| `EventCancelled` | Event | Booking *(opcional, réplica tardía — NO implementado)* |
 | `SeatReserved` | Booking | Payment, Event |
 | `ReservationConfirmed` | Booking | Event |
 | `ReservationCancelled` | Booking | Event |
@@ -52,24 +56,29 @@ es soberano.
 - Payment: `PaymentSucceededDomainEvent`, `PaymentFailedDomainEvent`
   (+ `PaymentInitiatedDomainEvent`, que es interno y NO sale del servicio).
 
-### 🔲 Falta construir (el grueso de este plan)
+### ✅ Construido (implementación completa, fases 0–6)
 
-1. **`BuildingBlocks.Messaging.RabbitMQ`** — proyecto nuevo con la implementación
-   concreta de `IEventBus`/`IEventPublisher`, gestión de conexión, topología y
-   el host de consumo. Hoy NO hay implementación de RabbitMQ en ningún lado.
-2. **Outbox pattern** — tabla + interceptor de EF + worker publicador, por servicio.
-3. **Inbox pattern** — tabla + dedup por `messageId`, por servicio consumidor.
-4. **Consumers concretos** — cada servicio implementa `IEventConsumer<>` de lo que
-   le importa.
-5. **Deuda bloqueante en EventService** (ver sección 5).
+1. **`BuildingBlocks.Messaging.RabbitMQ`** — implementación concreta de
+   `IEventBus`/`IEventPublisher`, gestión de conexión, topología (exchange +
+   colas + bindings + retry + DLQ) y el host de consumo
+   (`RabbitMqConsumerHostedService`). Tests de integración reales en
+   `BuildingBlocks.Messaging.RabbitMQ.Tests` (ping, retry, DLQ) ✅.
+2. **Outbox pattern** — `OutboxSaveChangesInterceptor` + `OutboxPublisherWorker`
+   + entidad/config EF, por servicio publicador (Booking, Payment, Event) ✅.
+3. **Inbox pattern** — entidad + dedup por `messageId`, por servicio consumidor
+   (Booking, Payment, Event) ✅.
+4. **Consumers concretos** — cada servicio implementa `IEventConsumer<>` de lo
+   que le importa (ver sección 4.5) ✅.
+5. **Deuda bloqueante en EventService** — resuelta (ver sección 5) ✅.
 
 ---
 
 ## 2. Topología RabbitMQ
 
 Un **topic exchange** durable. Cada servicio tiene UNA cola durable, bindeada a
-las routing keys que le interesan. Cada cola tiene su **DLQ** vía dead-letter
-exchange.
+las routing keys que le interesan. Cada cola tiene su **retry exchange**
+(`massseats.events.retry`) y su **DLQ** vía dead-letter exchange
+(`massseats.events.dead-letter`). ✅ Implementado.
 
 ```
                      ┌────────────────────────────┐
@@ -140,9 +149,9 @@ exchange.
 
 ---
 
-## 4. Componentes a construir
+## 4. Componentes construidos
 
-### 4.1 `BuildingBlocks.Messaging.RabbitMQ` (proyecto nuevo)
+### 4.1 `BuildingBlocks.Messaging.RabbitMQ` ✅ implementado
 
 Implementación concreta y reutilizable. Contiene:
 
@@ -163,7 +172,7 @@ Implementación concreta y reutilizable. Contiene:
 > el caso de uso escribe al **Outbox**. Es el worker del Outbox el que llama a
 > `IEventPublisher`. Así la publicación es atómica con el cambio de negocio.
 
-### 4.2 Outbox pattern (reutilizable, por servicio)
+### 4.2 Outbox pattern ✅ implementado (reutilizable, por servicio)
 
 **Tabla `outbox_messages`** (en la DB de cada servicio publicador):
 
@@ -194,7 +203,7 @@ Implementación concreta y reutilizable. Contiene:
 > colgado. El Outbox convierte "guardar + publicar" en una sola operación atómica
 > (guardar), y desacopla la publicación real.
 
-### 4.3 Inbox pattern (reutilizable, por servicio consumidor)
+### 4.3 Inbox pattern ✅ implementado (reutilizable, por servicio consumidor)
 
 **Tabla `inbox_messages`** (en la DB de cada servicio consumidor):
 
@@ -213,11 +222,11 @@ Implementación concreta y reutilizable. Contiene:
 > ⚠️ **Dos idempotencias distintas, no confundir:**
 > - **Inbox (bus)**: dedup por `IntegrationEvent.Id` para mensajes de RabbitMQ.
 > - **Webhook Stripe**: dedup por `StripeEventId`, es HTTP (no pasa por el bus).
->   Necesita su PROPIA tabla (`processed_stripe_events`) en el borde de Payment.
->   Hoy Payment usa idempotencia por ESTADO (guard `EnsurePending`); esto lo
->   endurece para el caso de eventos Stripe que no mapean a transición de estado.
+>   Tiene su PROPIA tabla (`processed_stripe_events`) en el borde de Payment ✅
+>   (`StripeWebhookProcessor` + migración `AddProcessedStripeEvents`), además de
+>   la idempotencia por ESTADO (guard `EnsurePending`).
 
-### 4.4 Traducción domain event → integration event (por servicio)
+### 4.4 Traducción domain event → integration event ✅ implementado (por servicio)
 
 Un mapper por servicio (ej. `IntegrationEventFactory`) que el interceptor usa:
 
@@ -234,45 +243,47 @@ Un mapper por servicio (ej. `IntegrationEventFactory`) que el interceptor usa:
 | Event | `EventUpdatedDomainEvent` | `EventUpdated` |
 | Event | `EventCancelledDomainEvent` | `EventCancelled` |
 
-> Los campos ya alinean (por eso agregué `Reason` a `PaymentFailedDomainEvent`).
-> Los de Event hay que CREARLOS (ver sección 5).
+> Los campos alinean (por eso se agregó `Reason` a `PaymentFailedDomainEvent`,
+> y ahora está persistido como `FailureReason`). Los mappers por servicio ya
+> existen: `BookingIntegrationEventFactory`, `PaymentIntegrationEventFactory`,
+> `EventIntegrationEventFactory`.
 
 ### 4.5 Consumers por servicio
 
-| Servicio | Consume | Acción (caso de uso que YA existe o falta) |
-|----------|---------|--------------------------------------------|
-| Payment | `SeatReserved` | `InitiateAsync` ✅ (ya existe) |
-| Booking | `PaymentSucceeded` | `ConfirmAsync` ✅ (ya existe) |
-| Booking | `PaymentFailed` | `CancelAsync` ✅ (ya existe) |
-| Event | `SeatReserved` | `DecrementAvailability` 🔲 (falta, sección 5) |
-| Event | `ReservationCancelled` / `ReservationExpired` | `ReleaseSeat` 🔲 (falta) |
-| Event | `ReservationConfirmed` | confirmar ocupación (no-op o marca) 🔲 |
-| Booking | `EventCreated`/`Updated`/`Cancelled` | opcional: réplica local de eventos (fase tardía) |
+| Servicio | Consume | Acción (caso de uso) | Estado |
+|----------|---------|----------------------|--------|
+| Payment | `SeatReserved` | `InitiateAsync` | ✅ implementado |
+| Booking | `PaymentSucceeded` | `ConfirmAsync` | ✅ implementado |
+| Booking | `PaymentFailed` | `CancelAsync` | ✅ implementado |
+| Event | `SeatReserved` | `DecrementAvailability` | ✅ implementado |
+| Event | `ReservationCancelled` / `ReservationExpired` | `ReleaseSeat` | ✅ implementado |
+| Event | `ReservationConfirmed` | confirmar ocupación (no-op o marca) | ✅ implementado (no-op con registro de inbox) |
+| Booking | `EventCreated`/`Updated`/`Cancelled` | opcional: réplica local de eventos | 🔲 pendiente (fase tardía / opcional) |
 
-> 🎉 Buena noticia: los casos de uso de la saga en Booking y Payment
-> (`InitiateAsync`, `ConfirmAsync`, `CancelAsync`) **ya están implementados**.
-> Los consumers solo los invocan. El grueso del trabajo nuevo es Event + el
-> plumbing de RabbitMQ/Outbox/Inbox.
+> 🎉 Los consumers de la saga en los 3 servicios ya están implementados y
+> probados (Booking `PaymentConsumersTests`, Payment `SeatReservedConsumerTests`
+> + integración real, Event `EventMessagingTests`). El único consumer que sigue
+> abierto es la réplica opcional del catálogo en Booking.
 
 ---
 
-## 5. Deuda bloqueante a resolver ANTES de la saga (EventService)
+## 5. Deuda bloqueante en EventService — ✅ RESUELTA
 
-EventService usa `AggregateRoot` pero **no levanta domain events, no tiene
-`AvailableSeats`, ni comportamiento para ajustarlo**. Sin esto, no puede ni
-publicar `EventCreated` ni reflejar disponibilidad. A resolver primero:
+EventService usaba `AggregateRoot` pero **no levantaba domain events, no tenía
+`AvailableSeats`, ni comportamiento para ajustarlo**. Resuelto en las fases 0/5:
 
-1. **Campo `AvailableSeats`** en `Event` (int), inicializado a `TotalSeats` en
-   `Create`. Columna nueva → **migración**.
-2. **Comportamiento de disponibilidad** (protege invariantes, no anémico):
+1. ✅ **Campo `AvailableSeats`** en `Event` (int), inicializado a `TotalSeats` en
+   `Create`. Migraciones: `AddEventAvailability`, `AddAvailableSeats`.
+2. ✅ **Comportamiento de disponibilidad** (protege invariantes, no anémico):
    - `DecrementAvailability()` — al consumir `SeatReserved` (valida `> 0`).
    - `ReleaseSeat()` — al consumir `ReservationCancelled`/`ReservationExpired`
      (no supera `TotalSeats`).
-3. **Domain events** (carpeta `Events/`): `EventCreatedDomainEvent`,
+3. ✅ **Domain events** (carpeta `Events/`): `EventCreatedDomainEvent`,
    `EventUpdatedDomainEvent`, `EventCancelledDomainEvent` + `RaiseDomainEvent(...)`
-   en `Create`/`UpdateDetails`/(nuevo) `Cancel()`.
-4. **`Cancel()`** en `Event` para poder emitir `EventCancelled`.
-5. **Consumers** de Event (sección 4.5) + Inbox en la DB de Event.
+   en `Create`/`UpdateDetails`/`Cancel()`.
+4. ✅ **`Cancel()`** en `Event` para poder emitir `EventCancelled`.
+5. ✅ **Consumers** de Event (sección 4.5) + Inbox en la DB de Event
+   (migración `AddEventMessaging`).
 
 > Nota de consistencia eventual: `AvailableSeats` en Event es un **reflejo
 > informativo**. La verdad de disponibilidad vive en Booking (unique constraint).
@@ -285,27 +296,35 @@ publicar `EventCreated` ni reflejar disponibilidad. A resolver primero:
 Cada fase deja algo **probable**. No avanzar sin verificar la anterior.
 
 ```
-Fase 0  Deuda EventService (AvailableSeats + domain events + Cancel)   🎓 vos
+Fase 0  Deuda EventService (AvailableSeats + domain events + Cancel)   ✅ HECHO
    ▼
-Fase 1  BuildingBlocks.Messaging.RabbitMQ (conexión + topología +      juntos
+Fase 1  BuildingBlocks.Messaging.RabbitMQ (conexión + topología +      ✅ HECHO
         publisher + consumer host). Prueba: publicar/consumir un ping.
+        → RabbitMqPingTests (integración real, 4/4).
    ▼
-Fase 2  Outbox en Booking (interceptor + worker + tabla + mapper).     juntos
-        Prueba: POST /reservations → ver SeatReserved en RabbitMQ UI.
+Fase 2  Outbox en Booking (interceptor + worker + tabla + mapper).     ✅ HECHO
+        Prueba: POST /reservations → SeatReserved en RabbitMQ UI.
+        → cubierto por PaymentConsumersTests + factory de Booking.
    ▼
-Fase 3  Inbox + consumer en Payment (SeatReserved → InitiateAsync).    juntos
+Fase 3  Inbox + consumer en Payment (SeatReserved → InitiateAsync).    ✅ HECHO
         Prueba: la reserva dispara la creación del PaymentIntent.
+        → SeatReservedMessagingTests (RabbitMQ real + Postgres, 1/1).
    ▼
-Fase 4  Outbox en Payment (PaymentSucceeded/Failed) + consumers en     juntos
+Fase 4  Outbox en Payment (PaymentSucceeded/Failed) + consumers en     ✅ HECHO
         Booking (Confirm/Cancel). Prueba: Stripe CLI → confirma reserva.
+        → PaymentOutboxTests + PaymentConsumersTests; la prueba con
+        Stripe CLI real queda para la fase 7 manual.
    ▼
-Fase 5  Event: consumers (SeatReserved/Reservation*) + su Outbox       🎓 vos
+Fase 5  Event: consumers (SeatReserved/Reservation*) + su Outbox       ✅ HECHO
         (EventCreated...). Prueba: availableSeats sube/baja.
+        → EventMessagingTests + EventService.Domain.Tests.
    ▼
-Fase 6  Retry + DLQ + hardening de mensajes envenenados.               juntos
+Fase 6  Retry + DLQ + hardening de mensajes envenenados.               ✅ HECHO
+        → RabbitMqPingTests: retry hasta éxito + DLQ al agotar budget.
    ▼
-Fase 7  Prueba end-to-end de la saga completa (happy path + fallo +    juntos
-        expiración).
+Fase 7  Prueba end-to-end de la saga completa (happy path + fallo +    ⚠️ PARCIAL
+        expiración). → Suite automatizada 36/36 ✅. Falta la prueba
+        manual con Stripe CLI real (webhook payment_intent.*).
 ```
 
 ---
@@ -354,40 +373,42 @@ Fase 7  Prueba end-to-end de la saga completa (happy path + fallo +    juntos
 ## 10. Checklist por servicio
 
 **BuildingBlocks**
-- [ ] Proyecto `BuildingBlocks.Messaging.RabbitMQ` (conexión, opciones, topología).
-- [ ] `RabbitMqEventBus`, `RabbitMqConsumerHostedService`, registro DI.
-- [ ] Outbox reutilizable (interceptor base, worker, entidad, config EF).
-- [ ] Inbox reutilizable (entidad, config EF, helper de dedup).
+- [x] Proyecto `BuildingBlocks.Messaging.RabbitMQ` (conexión, opciones, topología).
+- [x] `RabbitMqEventBus`, `RabbitMqConsumerHostedService`, registro DI.
+- [x] Outbox (interceptor, worker, entidad, config EF — replicado por servicio).
+- [x] Inbox (entidad, config EF, helper de dedup).
 
 **EventService** (más trabajo — deuda + saga)
-- [ ] `AvailableSeats` + `DecrementAvailability`/`ReleaseSeat`/`Cancel` + migración.
-- [ ] Domain events + mapper a `EventCreated/Updated/Cancelled`.
-- [ ] Outbox (interceptor + worker + tabla).
-- [ ] Consumers `SeatReserved`, `Reservation*` + Inbox.
+- [x] `AvailableSeats` + `DecrementAvailability`/`ReleaseSeat`/`Cancel` + migración.
+- [x] Domain events + mapper a `EventCreated/Updated/Cancelled`.
+- [x] Outbox (interceptor + worker + tabla).
+- [x] Consumers `SeatReserved`, `Reservation*` + Inbox.
 
 **BookingService**
-- [ ] Outbox (interceptor + worker + tabla + mapper → `SeatReserved`, `Reservation*`).
-- [ ] Consumers `PaymentSucceeded` (→Confirm), `PaymentFailed` (→Cancel) + Inbox.
-- [ ] El worker de expiración ya emite el domain event; solo enchufar al Outbox.
+- [x] Outbox (interceptor + worker + tabla + mapper → `SeatReserved`, `Reservation*`).
+- [x] Consumers `PaymentSucceeded` (→Confirm), `PaymentFailed` (→Cancel) + Inbox.
+- [x] El worker de expiración emite el domain event y el Outbox lo traduce
+      (`ReservationExpired`).
 
 **PaymentService**
-- [ ] Consumer `SeatReserved` (→InitiateAsync) + Inbox.
-- [ ] Outbox (interceptor + worker + tabla + mapper → `PaymentSucceeded/Failed`).
-- [ ] Tabla `processed_stripe_events` para dedup de webhooks por `StripeEventId`.
+- [x] Consumer `SeatReserved` (→InitiateAsync) + Inbox.
+- [x] Outbox (interceptor + worker + tabla + mapper → `PaymentSucceeded/Failed`).
+- [x] Tabla `processed_stripe_events` para dedup de webhooks por `StripeEventId`.
 
 ---
 
-## 11. TODOs arrastrados (cerrarlos en esta fase)
+## 11. TODOs arrastrados — estado 2026-08-02
 
-- **Payment `Reason` persistido**: hoy el motivo viaja en el domain event pero no
-  se guarda como columna. Con el Outbox el `Reason` llega al `PaymentFailed`, pero
-  `GET /payments/{id}` no lo muestra. Decidir si se persiste (columna + migración).
-- **Inbox por `StripeEventId`**: la tabla `processed_stripe_events` de la sección 4.3.
-- **Race en `InitiateAsync`**: al consumir `SeatReserved` dos veces concurrentes,
-  el unique constraint en `booking_id` rebota con `DbUpdateException` (23505 crudo →
-  500). Atraparlo y devolver el pago existente (como hace el repo de Booking con
-  `SeatAlreadyReservedException`).
-- **Booking réplica de eventos**: decidir si Booking consume `EventCreated/Updated/
-  Cancelled` para mantener una copia local del catálogo, o si le alcanza con los
-  datos que vienen en el request de reserva (fase tardía / opcional).
+- [x] **Payment `Reason` persistido**: resuelto. `FailureReason` como columna en
+  `Payment` (migración `AddPaymentFailureReason`) y expuesto en `GET /payments/{id}`.
+  El `Reason` llega completo al `PaymentFailed`.
+- [x] **Inbox por `StripeEventId`**: resuelto. Tabla `processed_stripe_events`
+  (migración `AddProcessedStripeEvents`) + `StripeWebhookProcessor` con dedup,
+  probado en `StripeWebhookProcessorTests`.
+- [x] **Race en `InitiateAsync`**: resuelto. Al consumir `SeatReserved` concurrente,
+  el `DbUpdateException` (23505) se atrapa y devuelve el pago existente.
+  Probado en `PaymentInitiateRaceTests`.
+- [ ] **Booking réplica de eventos**: sigue abierto (fase tardía / opcional).
+  Booking NO consume `EventCreated/Updated/Cancelled` hoy; le alcanza con los
+  datos que vienen en el request de reserva.
 ```
