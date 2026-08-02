@@ -10,8 +10,11 @@ public sealed class RabbitMqOptions
     public string Password { get; init; } = "guest";
     public string VirtualHost { get; init; } = "/";
     public string ExchangeName { get; init; } = "massseats.events";
+    public string RetryExchangeName { get; init; } = "massseats.events.retry";
     public string DeadLetterExchangeName { get; init; } = "massseats.events.dead-letter";
     public string? QueueName { get; init; }
     public ushort PrefetchCount { get; init; } = 16;
+    public int MaxRetryAttempts { get; init; } = 3;
+    public TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(5);
     public TimeSpan NetworkRecoveryInterval { get; init; } = TimeSpan.FromSeconds(5);
 }

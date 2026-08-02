@@ -9,6 +9,9 @@ namespace BuildingBlocks.Messaging.RabbitMQ;
 
 internal sealed class RabbitMqConsumerHostedService : BackgroundService
 {
+    private const string RetryCountHeader = "x-retry-count";
+    private static readonly TimeSpan HandoffFailureBackoff = TimeSpan.FromSeconds(1);
+
     private readonly RabbitMqConnection _connection;
     private readonly TopologyInitializer _topology;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -52,8 +55,8 @@ internal sealed class RabbitMqConsumerHostedService : BackgroundService
 
         await using var channel = await _connection.CreateChannelAsync(
             new CreateChannelOptions(
-                publisherConfirmationsEnabled: false,
-                publisherConfirmationTrackingEnabled: false,
+                publisherConfirmationsEnabled: true,
+                publisherConfirmationTrackingEnabled: true,
                 consumerDispatchConcurrency: 1),
             stoppingToken);
 
@@ -93,17 +96,50 @@ internal sealed class RabbitMqConsumerHostedService : BackgroundService
             }
             catch (Exception exception)
             {
+                var retryCount = GetRetryCount(delivery.BasicProperties.Headers);
                 _logger.LogError(
                     exception,
-                    "Failed to consume RabbitMQ message {MessageId} of type {MessageType}",
+                    "Failed to consume RabbitMQ message {MessageId} of type {MessageType} on attempt {Attempt}",
                     delivery.BasicProperties.MessageId,
-                    delivery.BasicProperties.Type);
+                    delivery.BasicProperties.Type,
+                    retryCount < int.MaxValue ? retryCount + 1 : int.MaxValue);
 
-                await channel.BasicNackAsync(
-                    delivery.DeliveryTag,
-                    multiple: false,
-                    requeue: false,
-                    stoppingToken);
+                try
+                {
+                    await RepublishFailedMessageAsync(
+                        channel,
+                        delivery,
+                        retryCount,
+                        stoppingToken);
+
+                    await channel.BasicAckAsync(
+                        delivery.DeliveryTag,
+                        multiple: false,
+                        stoppingToken);
+                }
+                catch (Exception publishException)
+                {
+                    _logger.LogError(
+                        publishException,
+                        "Could not hand off failed RabbitMQ message {MessageId}; requeueing the original",
+                        delivery.BasicProperties.MessageId);
+
+                    try
+                    {
+                        await Task.Delay(HandoffFailureBackoff, stoppingToken);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        // Leave the delivery unacked; channel shutdown will requeue it.
+                        return;
+                    }
+
+                    await channel.BasicNackAsync(
+                        delivery.DeliveryTag,
+                        multiple: false,
+                        requeue: true,
+                        stoppingToken);
+                }
             }
         };
 
@@ -119,4 +155,86 @@ internal sealed class RabbitMqConsumerHostedService : BackgroundService
 
         await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
     }
+
+    private async Task RepublishFailedMessageAsync(
+        IChannel channel,
+        BasicDeliverEventArgs delivery,
+        int retryCount,
+        CancellationToken cancellationToken)
+    {
+        var shouldRetry = retryCount < _options.MaxRetryAttempts;
+        var properties = CopyProperties(delivery.BasicProperties);
+        properties.Expiration = null;
+
+        if (shouldRetry)
+        {
+            properties.Headers![RetryCountHeader] = retryCount + 1;
+            properties.Expiration = checked((int)_options.RetryDelay.TotalMilliseconds).ToString();
+        }
+
+        var exchange = shouldRetry
+            ? _options.RetryExchangeName
+            : _options.DeadLetterExchangeName;
+
+        await channel.BasicPublishAsync(
+            exchange,
+            _options.QueueName!,
+            mandatory: true,
+            properties,
+            delivery.Body,
+            cancellationToken);
+
+        if (shouldRetry)
+        {
+            _logger.LogWarning(
+                "Scheduled retry {RetryAttempt}/{MaxRetryAttempts} for RabbitMQ message {MessageId} after {RetryDelay}",
+                retryCount + 1,
+                _options.MaxRetryAttempts,
+                delivery.BasicProperties.MessageId,
+                _options.RetryDelay);
+        }
+        else
+        {
+            _logger.LogError(
+                "Moved RabbitMQ message {MessageId} to the dead-letter queue after {RetryAttempts} retries",
+                delivery.BasicProperties.MessageId,
+                retryCount);
+        }
+    }
+
+    private static int GetRetryCount(IDictionary<string, object?>? headers)
+    {
+        if (headers is null || !headers.TryGetValue(RetryCountHeader, out var value))
+            return 0;
+
+        return value switch
+        {
+            byte count => count,
+            sbyte count when count >= 0 => count,
+            short count when count >= 0 => count,
+            int count when count >= 0 => count,
+            long count when count is >= 0 and <= int.MaxValue => (int)count,
+            _ => int.MaxValue
+        };
+    }
+
+    private static BasicProperties CopyProperties(IReadOnlyBasicProperties source) => new()
+    {
+        AppId = source.AppId,
+        ClusterId = source.ClusterId,
+        ContentEncoding = source.ContentEncoding,
+        ContentType = source.ContentType,
+        CorrelationId = source.CorrelationId,
+        DeliveryMode = source.DeliveryMode,
+        Expiration = source.Expiration,
+        Headers = source.Headers is null
+            ? new Dictionary<string, object?>()
+            : new Dictionary<string, object?>(source.Headers),
+        MessageId = source.MessageId,
+        Priority = source.Priority,
+        ReplyTo = source.ReplyTo,
+        Timestamp = source.Timestamp,
+        Type = source.Type,
+        UserId = source.UserId
+    };
 }

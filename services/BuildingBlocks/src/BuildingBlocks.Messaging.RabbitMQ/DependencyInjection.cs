@@ -28,11 +28,21 @@ public static class DependencyInjection
                 options => !string.IsNullOrWhiteSpace(options.ExchangeName),
                 "RabbitMq:ExchangeName is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.RetryExchangeName),
+                "RabbitMq:RetryExchangeName is required.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.DeadLetterExchangeName),
                 "RabbitMq:DeadLetterExchangeName is required.")
             .Validate(
                 options => options.PrefetchCount > 0,
                 "RabbitMq:PrefetchCount must be greater than zero.")
+            .Validate(
+                options => options.MaxRetryAttempts >= 0,
+                "RabbitMq:MaxRetryAttempts cannot be negative.")
+            .Validate(
+                options => options.RetryDelay > TimeSpan.Zero &&
+                    options.RetryDelay.TotalMilliseconds <= int.MaxValue,
+                "RabbitMq:RetryDelay must be positive and no longer than 24.8 days.")
             .ValidateOnStart();
 
         services.AddSingleton<RabbitMqConnection>();

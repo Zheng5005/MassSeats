@@ -34,6 +34,13 @@ public sealed class TopologyInitializer
             return;
 
         await channel.ExchangeDeclareAsync(
+            _options.RetryExchangeName,
+            ExchangeType.Direct,
+            durable: true,
+            autoDelete: false,
+            cancellationToken: cancellationToken);
+
+        await channel.ExchangeDeclareAsync(
             _options.DeadLetterExchangeName,
             ExchangeType.Direct,
             durable: true,
@@ -41,6 +48,7 @@ public sealed class TopologyInitializer
             cancellationToken: cancellationToken);
 
         var deadLetterQueueName = GetDeadLetterQueueName(_options.QueueName);
+        var retryQueueName = GetRetryQueueName(_options.QueueName);
 
         await channel.QueueDeclareAsync(
             deadLetterQueueName,
@@ -52,6 +60,29 @@ public sealed class TopologyInitializer
         await channel.QueueBindAsync(
             deadLetterQueueName,
             _options.DeadLetterExchangeName,
+            _options.QueueName,
+            cancellationToken: cancellationToken);
+
+        var retryQueueArguments = new Dictionary<string, object?>
+        {
+            ["x-queue-type"] = "quorum",
+            ["x-dead-letter-strategy"] = "at-least-once",
+            ["x-overflow"] = "reject-publish",
+            ["x-dead-letter-exchange"] = _options.ExchangeName,
+            ["x-dead-letter-routing-key"] = _options.QueueName
+        };
+
+        await channel.QueueDeclareAsync(
+            retryQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: retryQueueArguments,
+            cancellationToken: cancellationToken);
+
+        await channel.QueueBindAsync(
+            retryQueueName,
+            _options.RetryExchangeName,
             _options.QueueName,
             cancellationToken: cancellationToken);
 
@@ -67,6 +98,12 @@ public sealed class TopologyInitializer
             exclusive: false,
             autoDelete: false,
             arguments: queueArguments,
+            cancellationToken: cancellationToken);
+
+        await channel.QueueBindAsync(
+            _options.QueueName,
+            _options.ExchangeName,
+            _options.QueueName,
             cancellationToken: cancellationToken);
 
         foreach (var eventType in subscribedEventTypes.Distinct())
@@ -92,4 +129,9 @@ public sealed class TopologyInitializer
         queueName.EndsWith(".queue", StringComparison.Ordinal)
             ? $"{queueName[..^".queue".Length]}.dlq"
             : $"{queueName}.dlq";
+
+    internal static string GetRetryQueueName(string queueName) =>
+        queueName.EndsWith(".queue", StringComparison.Ordinal)
+            ? $"{queueName[..^".queue".Length]}.retry"
+            : $"{queueName}.retry";
 }
