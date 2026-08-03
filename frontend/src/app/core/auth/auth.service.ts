@@ -55,6 +55,17 @@ export class AuthService {
     return this.api.post<User>('/users', payload);
   }
 
+  /**
+   * Replaces the in-memory and persisted user. Used after profile edits so the
+   * shell header reflects the latest values without a reload.
+   */
+  setUser(user: User): void {
+    this.user.set(user);
+    if (isPlatformBrowser(this.platformId)) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+  }
+
   logout(): void {
     this.token.set(null);
     this.user.set(null);

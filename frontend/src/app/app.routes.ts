@@ -5,6 +5,9 @@ import { EventDetail } from './features/catalog/pages/event-detail/event-detail.
 import { EventList } from './features/catalog/pages/event-list/event-list.component';
 import { VenueDetail } from './features/catalog/pages/venue-detail/venue-detail.component';
 import { VenueList } from './features/catalog/pages/venue-list/venue-list.component';
+import { Login } from './features/account/pages/login/login.component';
+import { Profile } from './features/account/pages/profile/profile.component';
+import { Register } from './features/account/pages/register/register.component';
 import { PlaceholderPage } from './features/shell/placeholder-page/placeholder-page.component';
 
 export const routes: Routes = [
@@ -35,17 +38,17 @@ export const routes: Routes = [
   },
   {
     path: 'login',
-    component: PlaceholderPage,
+    component: Login,
     data: { title: 'Login' },
   },
   {
     path: 'register',
-    component: PlaceholderPage,
+    component: Register,
     data: { title: 'Register' },
   },
   {
     path: 'profile',
-    component: PlaceholderPage,
+    component: Profile,
     data: { title: 'Profile' },
     canActivate: [authGuard],
   },

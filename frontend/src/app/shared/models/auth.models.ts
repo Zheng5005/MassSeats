@@ -28,3 +28,10 @@ export interface CreateUserRequest {
   nationalId?: string | null;
   phone?: string | null;
 }
+
+export interface UpdateUserRequest {
+  firstName: string;
+  lastName?: string | null;
+  phone?: string | null;
+  profileImage?: string | null;
+}
