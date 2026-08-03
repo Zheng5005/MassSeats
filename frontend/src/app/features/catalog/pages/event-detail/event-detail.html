@@ -1,0 +1,173 @@
+<section class="space-y-6">
+  <a
+    routerLink="/events"
+    class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-blue-700"
+  >
+    <span aria-hidden="true">&larr;</span>
+    All events
+  </a>
+
+  @if (loading()) {
+    <div class="animate-pulse space-y-6">
+      <div class="h-64 rounded-lg bg-slate-200"></div>
+      <div class="grid gap-6 lg:grid-cols-3">
+        <div class="space-y-4 lg:col-span-2">
+          <div class="h-8 w-2/3 rounded bg-slate-200"></div>
+          <div class="h-4 w-1/3 rounded bg-slate-100"></div>
+          <div class="h-28 rounded bg-slate-100"></div>
+        </div>
+        <div class="h-56 rounded-lg bg-slate-200"></div>
+      </div>
+    </div>
+  } @else if (notFound()) {
+    <div class="rounded-lg border border-dashed border-slate-300 bg-white px-12 py-16 text-center">
+      <p class="font-display text-2xl font-semibold text-slate-900">Event not found</p>
+      <p class="mt-2 text-sm text-slate-500">
+        It may have been removed, or the link is out of date.
+      </p>
+      <a
+        routerLink="/events"
+        class="mt-6 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+      >
+        Browse events
+      </a>
+    </div>
+  } @else if (error(); as message) {
+    <div class="rounded-lg border border-red-200 bg-red-50 px-8 py-12 text-center" role="alert">
+      <h2 class="text-lg font-semibold text-red-800">Couldn't load this event</h2>
+      <p class="mt-1 text-sm text-red-700">{{ message }}</p>
+      <button
+        type="button"
+        (click)="load()"
+        class="mt-5 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+      >
+        Try again
+      </button>
+    </div>
+  } @else if (event(); as ev) {
+    <article class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div class="relative h-64 sm:h-80">
+        @if (ev.bannerImage) {
+          <img [src]="ev.bannerImage" [alt]="ev.title" class="h-full w-full object-cover" />
+        } @else {
+          <div
+            class="flex h-full w-full items-end bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 p-8"
+          >
+            <h1
+              class="font-display text-4xl font-semibold italic tracking-tight text-white sm:text-5xl"
+            >
+              {{ ev.title }}
+            </h1>
+          </div>
+        }
+      </div>
+
+      <div class="grid gap-8 p-6 sm:p-8 lg:grid-cols-3">
+        <div class="lg:col-span-2">
+          @if (ev.bannerImage) {
+            <h1
+              class="font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl"
+            >
+              {{ ev.title }}
+            </h1>
+          }
+          <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
+            <span class="inline-flex items-center gap-1.5">
+              <svg
+                class="h-4 w-4 text-slate-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              {{ formatDate(ev.eventDate) }}
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <svg
+                class="h-4 w-4 text-slate-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              {{ formatTime(ev.eventDate) }}
+            </span>
+            <a
+              routerLink="/venues/{{ ev.venueId }}"
+              class="inline-flex items-center gap-1.5 font-medium text-slate-700 hover:text-blue-700"
+            >
+              <svg
+                class="h-4 w-4 text-slate-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              {{ venueName(ev.venueId) }}
+            </a>
+          </div>
+
+          <span
+            class="mt-5 inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200"
+          >
+            {{ categoryName(ev.categoryId) }}
+          </span>
+
+          @if (ev.description) {
+            <p class="mt-6 whitespace-pre-line text-[15px] leading-7 text-slate-700">
+              {{ ev.description }}
+            </p>
+          }
+        </div>
+
+        <aside class="h-fit rounded-lg border border-slate-200 bg-slate-50 p-6 lg:sticky lg:top-8">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Price</p>
+          <p class="mt-1 font-display text-3xl font-semibold text-slate-900">
+            {{ formatPrice(ev.ticketPrice) }}
+          </p>
+
+          <div class="mt-6 border-t border-slate-200 pt-5">
+            <div class="flex items-baseline justify-between">
+              <p class="text-sm font-medium text-slate-700">Availability</p>
+              <p class="text-sm text-slate-500">
+                {{ ev.availableSeats }} / {{ ev.totalSeats }} seats
+              </p>
+            </div>
+            <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+              <div
+                class="h-full rounded-full transition-all duration-500 {{ availabilityColor() }}"
+                [style.width.%]="availableRatio() * 100"
+              ></div>
+            </div>
+            @if (ev.availableSeats <= 20 && ev.availableSeats > 0) {
+              <p class="mt-3 text-sm font-semibold text-rose-600">
+                Selling fast — only {{ ev.availableSeats }} left
+              </p>
+            }
+            @if (ev.availableSeats === 0) {
+              <p class="mt-3 text-sm font-semibold text-rose-600">Sold out</p>
+            }
+          </div>
+
+          <p class="mt-5 text-xs italic leading-5 text-slate-500">
+            Approximate — updates from booking events.
+          </p>
+        </aside>
+      </div>
+    </article>
+  }
+</section>

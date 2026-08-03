@@ -1,31 +1,35 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
+import { EventDetail } from './features/catalog/pages/event-detail/event-detail.component';
+import { EventList } from './features/catalog/pages/event-list/event-list.component';
+import { VenueDetail } from './features/catalog/pages/venue-detail/venue-detail.component';
+import { VenueList } from './features/catalog/pages/venue-list/venue-list.component';
 import { PlaceholderPage } from './features/shell/placeholder-page/placeholder-page.component';
 
 export const routes: Routes = [
   {
     path: '',
-    component: PlaceholderPage,
+    component: EventList,
     pathMatch: 'full',
     data: { title: 'Event list' },
     canActivate: [authGuard],
   },
   {
     path: 'events/:id',
-    component: PlaceholderPage,
+    component: EventDetail,
     data: { title: 'Event detail' },
     canActivate: [authGuard],
   },
   {
     path: 'venues',
-    component: PlaceholderPage,
+    component: VenueList,
     data: { title: 'Venue list' },
     canActivate: [authGuard],
   },
   {
     path: 'venues/:id',
-    component: PlaceholderPage,
+    component: VenueDetail,
     data: { title: 'Venue detail' },
     canActivate: [authGuard],
   },
