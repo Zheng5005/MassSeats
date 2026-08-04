@@ -192,6 +192,14 @@
       "sessions": 0,
       "memories": 1,
       "prompts": 0
+    },
+    {
+      "id": "a387f24b",
+      "created_by": "zheng005",
+      "created_at": "2026-08-04T20:20:48Z",
+      "sessions": 2,
+      "memories": 3,
+      "prompts": 2
     }
   ]
 }
