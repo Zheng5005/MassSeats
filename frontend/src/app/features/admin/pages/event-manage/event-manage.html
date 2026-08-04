@@ -1,0 +1,126 @@
+<section class="space-y-8">
+  <header class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">Admin</p>
+      <h1
+        class="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl"
+      >
+        Events
+      </h1>
+    </div>
+    <a
+      routerLink="/admin/events/new"
+      class="rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+    >
+      New event
+    </a>
+  </header>
+
+  <p
+    class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+    role="note"
+  >
+    {{ note }}
+  </p>
+
+  @if (loading()) {
+    <div class="space-y-3">
+      @for (skeleton of [1, 2, 3]; track skeleton) {
+        <div class="animate-pulse h-16 rounded-lg border border-slate-200 bg-white shadow-sm"></div>
+      }
+    </div>
+  } @else if (error(); as message) {
+    <div class="rounded-lg border border-red-200 bg-red-50 px-8 py-12 text-center" role="alert">
+      <h2 class="text-lg font-semibold text-red-800">Couldn't load events</h2>
+      <p class="mt-1 text-sm text-red-700">{{ message }}</p>
+      <button
+        type="button"
+        (click)="load()"
+        class="mt-5 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+      >
+        Try again
+      </button>
+    </div>
+  } @else if (events().length === 0) {
+    <div class="rounded-lg border border-dashed border-slate-300 bg-white px-12 py-16 text-center">
+      <p class="font-display text-2xl font-semibold text-slate-900">No events yet</p>
+      <p class="mt-2 text-sm text-slate-500">Create the first one to get started.</p>
+      <a
+        routerLink="/admin/events/new"
+        class="mt-5 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+      >
+        New event
+      </a>
+    </div>
+  } @else {
+    @if (deleteError(); as message) {
+      <div
+        class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        role="alert"
+      >
+        {{ message }}
+      </div>
+    }
+    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead class="bg-slate-50">
+          <tr>
+            <th scope="col" class="px-5 py-3 font-semibold text-slate-500">Event</th>
+            <th scope="col" class="px-5 py-3 font-semibold text-slate-500">Date</th>
+            <th scope="col" class="px-5 py-3 font-semibold text-slate-500">Venue</th>
+            <th scope="col" class="px-5 py-3 font-semibold text-slate-500">Price</th>
+            <th scope="col" class="px-5 py-3 font-semibold text-slate-500">Seats</th>
+            <th scope="col" class="px-5 py-3 text-right font-semibold text-slate-500">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (event of events(); track event.id) {
+            <tr>
+              <td class="px-5 py-4 font-medium text-slate-900">{{ event.title }}</td>
+              <td class="px-5 py-4 text-slate-600">{{ formatDate(event.eventDate) }}</td>
+              <td class="px-5 py-4 text-slate-600">{{ venueName(event.venueId) }}</td>
+              <td class="px-5 py-4 text-slate-600">{{ formatPrice(event.ticketPrice) }}</td>
+              <td class="px-5 py-4 text-slate-600">{{ event.totalSeats }}</td>
+              <td class="px-5 py-4">
+                <div class="flex items-center justify-end gap-2">
+                  <a
+                    routerLink="/admin/events/{{ event.id }}"
+                    class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Edit
+                  </a>
+                  @if (confirmingId() === event.id) {
+                    <span class="text-sm font-semibold text-red-900">Are you sure?</span>
+                    <button
+                      type="button"
+                      (click)="cancelDelete()"
+                      class="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      (click)="delete(event.id)"
+                      [disabled]="deletingId() === event.id"
+                      class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {{ deletingId() === event.id ? 'Deleting…' : 'Delete' }}
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      (click)="confirmDelete(event.id)"
+                      class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
+                    >
+                      Delete
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

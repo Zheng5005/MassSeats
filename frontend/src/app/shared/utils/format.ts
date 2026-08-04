@@ -46,6 +46,43 @@ export function formatPrice(amount: number | null | undefined): string {
   }).format(amount);
 }
 
+function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+/**
+ * Converts an ISO-8601 datetime string into a value for
+ * `<input type="datetime-local">` in the browser's local timezone
+ * ("YYYY-MM-DDTHH:mm"). Returns an empty string for invalid input.
+ */
+export function toLocalDateTimeInput(iso: string | null | undefined): string {
+  if (!iso) {
+    return '';
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return (
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}` +
+    `T${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+  );
+}
+
+/**
+ * Converts a `<input type="datetime-local">` value ("YYYY-MM-DDTHH:mm", local
+ * time) into ISO-8601 with an offset via toISOString(). The API expects
+ * DateTimeOffset, so the local string is parsed as local time and sent as UTC
+ * with the `Z` suffix.
+ */
+export function toIsoDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toISOString();
+}
+
 /**
  * Turns an unknown thrown error (ApiError, HttpErrorResponse, ...) into a
  * short, readable message. Duck-typed on purpose so this stays dependency-free.

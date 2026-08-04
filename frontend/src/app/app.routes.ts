@@ -1,6 +1,10 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
+import { EventManage } from './features/admin/pages/event-manage/event-manage.component';
+import { EventForm } from './features/admin/pages/event-form/event-form.component';
+import { VenueManage } from './features/admin/pages/venue-manage/venue-manage.component';
+import { VenueForm } from './features/admin/pages/venue-form/venue-form.component';
 import { EventDetail } from './features/catalog/pages/event-detail/event-detail.component';
 import { EventList } from './features/catalog/pages/event-list/event-list.component';
 import { VenueDetail } from './features/catalog/pages/venue-detail/venue-detail.component';
@@ -54,37 +58,37 @@ export const routes: Routes = [
   },
   {
     path: 'admin/events',
-    component: PlaceholderPage,
+    component: EventManage,
     data: { title: 'Event management' },
     canActivate: [authGuard],
   },
   {
     path: 'admin/events/new',
-    component: PlaceholderPage,
+    component: EventForm,
     data: { title: 'Create event' },
     canActivate: [authGuard],
   },
   {
     path: 'admin/events/:id',
-    component: PlaceholderPage,
+    component: EventForm,
     data: { title: 'Edit event' },
     canActivate: [authGuard],
   },
   {
     path: 'admin/venues',
-    component: PlaceholderPage,
+    component: VenueManage,
     data: { title: 'Venue management' },
     canActivate: [authGuard],
   },
   {
     path: 'admin/venues/new',
-    component: PlaceholderPage,
+    component: VenueForm,
     data: { title: 'Create venue' },
     canActivate: [authGuard],
   },
   {
     path: 'admin/venues/:id',
-    component: PlaceholderPage,
+    component: VenueForm,
     data: { title: 'Edit venue' },
     canActivate: [authGuard],
   },
