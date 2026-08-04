@@ -12,6 +12,8 @@ import { VenueList } from './features/catalog/pages/venue-list/venue-list.compon
 import { Login } from './features/account/pages/login/login.component';
 import { Profile } from './features/account/pages/profile/profile.component';
 import { Register } from './features/account/pages/register/register.component';
+import { ReservationCreate } from './features/bookings/pages/reservation-create/reservation-create.component';
+import { ReservationDetail } from './features/bookings/pages/reservation-detail/reservation-detail.component';
 import { PlaceholderPage } from './features/shell/placeholder-page/placeholder-page.component';
 
 export const routes: Routes = [
@@ -94,13 +96,13 @@ export const routes: Routes = [
   },
   {
     path: 'events/:id/book',
-    component: PlaceholderPage,
+    component: ReservationCreate,
     data: { title: 'Reservation create' },
     canActivate: [authGuard],
   },
   {
     path: 'reservations/:id',
-    component: PlaceholderPage,
+    component: ReservationDetail,
     data: { title: 'Reservation detail' },
     canActivate: [authGuard],
   },

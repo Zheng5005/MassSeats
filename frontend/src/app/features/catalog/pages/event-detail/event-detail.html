@@ -166,6 +166,15 @@
           <p class="mt-5 text-xs italic leading-5 text-slate-500">
             Approximate — updates from booking events.
           </p>
+
+          @if (ev.availableSeats > 0) {
+            <a
+              routerLink="/events/{{ ev.id }}/book"
+              class="mt-6 block rounded-md bg-slate-900 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
+            >
+              Book a seat
+            </a>
+          }
         </aside>
       </div>
     </article>
