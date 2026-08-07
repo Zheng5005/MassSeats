@@ -216,6 +216,14 @@
       "sessions": 2,
       "memories": 3,
       "prompts": 0
+    },
+    {
+      "id": "1f937d30",
+      "created_by": "zheng005",
+      "created_at": "2026-08-07T19:38:35Z",
+      "sessions": 0,
+      "memories": 1,
+      "prompts": 0
     }
   ]
 }
