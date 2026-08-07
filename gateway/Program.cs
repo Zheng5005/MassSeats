@@ -48,13 +48,18 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 app.UseAuthentication();
 
 // Auth middleware: validate JWT and forward user claims as headers
-// Excluded paths (login, webhook) don't need authentication
+// Excluded paths (login, registration, webhook) don't need authentication
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
 
+    // Registration (POST /users) is the only unauthenticated POST on /users;
+    // everything else under /users/** (profile CRUD) stays protected.
+    var isRegister = context.Request.Method == HttpMethods.Post &&
+                     (path == "/users" || path == "/users/");
+
     // Skip auth for public endpoints
-    if (path.StartsWith("/users/login") || path.StartsWith("/payments/webhook"))
+    if (path.StartsWith("/users/login") || path.StartsWith("/payments/webhook") || isRegister)
     {
         await next(context);
         return;
