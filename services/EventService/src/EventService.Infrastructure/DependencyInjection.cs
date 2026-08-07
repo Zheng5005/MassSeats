@@ -1,6 +1,7 @@
 using EventService.Domain.Interfaces;
 using EventService.Infrastructure.Messaging;
 using EventService.Infrastructure.Persistence;
+using EventService.Infrastructure.Seeding;
 using BuildingBlocks.Messaging.Contracts;
 using BuildingBlocks.Messaging.RabbitMQ;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,8 @@ public static class DependencyInjection
         services.AddEventConsumer<ReservationCancelled, ReservationCancelledConsumer>();
         services.AddEventConsumer<ReservationExpired, ReservationExpiredConsumer>();
         services.AddHostedService<OutboxPublisherWorker>();
+
+        services.AddScoped<EventDbSeeder>();
 
         return services;
     }

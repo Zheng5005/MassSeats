@@ -5,6 +5,7 @@ using UserService.Application.Interfaces;
 using UserService.Domain.Interfaces;
 using UserService.Infrastructure.Configuration;
 using UserService.Infrastructure.Persistence;
+using UserService.Infrastructure.Seeding;
 using UserService.Infrastructure.Security;
 
 namespace UserService.Infrastructure;
@@ -33,6 +34,8 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
+
+        services.AddScoped<UserDbSeeder>();
 
         return services;
     }
