@@ -9,9 +9,13 @@ public static class PaymentEndpoints
     {
         var group = app.MapGroup("/payments").WithTags("Payments");
 
-        group.MapGet("/{id:guid}", async (Guid id, IPaymentService service, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async (HttpContext httpContext, Guid id, IPaymentService service, CancellationToken ct) =>
         {
-            var payment = await service.GetByIdAsync(id, ct);
+            var userId = GetUserId(httpContext);
+            if (userId is null)
+                return Results.Unauthorized();
+
+            var payment = await service.GetByIdForUserAsync(id, userId.Value, ct);
             return payment is null ? Results.NotFound() : Results.Ok(payment);
         });
 
@@ -20,17 +24,20 @@ public static class PaymentEndpoints
         // payment is Pending — a resolved payment returns the same 404 as a
         // missing one (nothing left to confirm). The secret never appears in
         // the general read model (GET /payments/{id}).
-        group.MapGet("/{bookingId:guid}/client-secret", async (Guid bookingId, IPaymentService service, CancellationToken ct) =>
+        group.MapGet("/{bookingId:guid}/client-secret", async (HttpContext httpContext, Guid bookingId, IPaymentService service, CancellationToken ct) =>
         {
-            var clientSecret = await service.GetClientSecretAsync(bookingId, ct);
-            if (clientSecret is null)
+            var userId = GetUserId(httpContext);
+            if (userId is null)
+                return Results.Unauthorized();
+
+            var result = await service.GetClientSecretForUserAsync(bookingId, userId.Value, ct);
+            if (result is null)
                 return Results.NotFound();
 
-            var payment = await service.GetByBookingIdAsync(bookingId, ct);
             return Results.Ok(new
             {
-                clientSecret,
-                paymentIntentId = payment?.StripePaymentIntentId
+                clientSecret = result.ClientSecret,
+                paymentIntentId = result.PaymentIntentId
             });
         });
 
@@ -55,5 +62,14 @@ public static class PaymentEndpoints
         });
 
         return app;
+    }
+
+    // The gateway injects the authenticated user id as a header. Missing or
+    // unparseable header => unauthenticated. Scope is enforced in the service,
+    // so a wrong user id yields the same 404 as a missing payment.
+    private static Guid? GetUserId(HttpContext httpContext)
+    {
+        var header = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
+        return Guid.TryParse(header, out var userId) ? userId : null;
     }
 }

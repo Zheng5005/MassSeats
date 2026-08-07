@@ -66,6 +66,89 @@ public sealed class ClientSecretTests
         Assert.Null(secret);
     }
 
+    [Fact]
+    public async Task GetClientSecretForUserAsync_WhenOwnedAndPending_ReturnsSecretAndIntentId()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var owner = Guid.NewGuid();
+        var payment = CreatePayment(owner);
+        var service = new PaymentAppService(
+            new FakePaymentRepository(payment),
+            new FakePaymentGateway());
+
+        var result = await service.GetClientSecretForUserAsync(payment.BookingId, owner, cancellationToken);
+
+        Assert.NotNull(result);
+        Assert.Equal(payment.ClientSecret, result.ClientSecret);
+        Assert.Equal(payment.StripePaymentIntentId, result.PaymentIntentId);
+    }
+
+    [Fact]
+    public async Task GetClientSecretForUserAsync_WhenNotOwned_ReturnsNull()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var payment = CreatePayment();
+        var service = new PaymentAppService(
+            new FakePaymentRepository(payment),
+            new FakePaymentGateway());
+
+        var result = await service.GetClientSecretForUserAsync(
+            payment.BookingId,
+            Guid.NewGuid(),
+            cancellationToken);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetClientSecretForUserAsync_WhenOwnedButResolved_ReturnsNull()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var owner = Guid.NewGuid();
+        var payment = CreatePayment(owner);
+        payment.Succeed("card");
+        var service = new PaymentAppService(
+            new FakePaymentRepository(payment),
+            new FakePaymentGateway());
+
+        var result = await service.GetClientSecretForUserAsync(payment.BookingId, owner, cancellationToken);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetByIdForUserAsync_WhenOwned_ReturnsPayment()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var owner = Guid.NewGuid();
+        var payment = CreatePayment(owner);
+        var service = new PaymentAppService(
+            new FakePaymentRepository(payment),
+            new FakePaymentGateway());
+
+        var response = await service.GetByIdForUserAsync(payment.Id, owner, cancellationToken);
+
+        Assert.NotNull(response);
+        Assert.Equal(payment.Id, response.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdForUserAsync_WhenNotOwned_ReturnsNull()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var payment = CreatePayment();
+        var service = new PaymentAppService(
+            new FakePaymentRepository(payment),
+            new FakePaymentGateway());
+
+        var response = await service.GetByIdForUserAsync(
+            payment.Id,
+            Guid.NewGuid(),
+            cancellationToken);
+
+        Assert.Null(response);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -76,6 +159,7 @@ public sealed class ClientSecretTests
 
         var exception = Assert.Throws<DomainValidationException>(() =>
             Payment.Create(
+                Guid.NewGuid(),
                 bookingId,
                 $"pi_test_{Guid.NewGuid():N}",
                 clientSecret!,
@@ -92,6 +176,7 @@ public sealed class ClientSecretTests
 
         var payment = Payment.Create(
             Guid.NewGuid(),
+            Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
             $"  {clientSecret}  ",
             50m,
@@ -100,8 +185,9 @@ public sealed class ClientSecretTests
         Assert.Equal(clientSecret, payment.ClientSecret);
     }
 
-    private static Payment CreatePayment() =>
+    private static Payment CreatePayment(Guid? owner = null) =>
         Payment.Create(
+            owner ?? Guid.NewGuid(),
             Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
             $"pi_test_{Guid.NewGuid():N}_secret_test",
@@ -118,7 +204,7 @@ public sealed class ClientSecretTests
         }
 
         public Task<Payment?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-            throw new NotSupportedException();
+            Task.FromResult(_existing);
 
         public Task<Payment?> GetByBookingIdAsync(
             Guid bookingId,

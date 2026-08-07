@@ -13,6 +13,7 @@ namespace PaymentService.Domain.Entities;
 /// </summary>
 public sealed class Payment : AggregateRoot
 {
+    public Guid UserId { get; private set; }
     public Guid BookingId { get; private set; }
     public string StripePaymentIntentId { get; private set; }
     public string ClientSecret { get; private set; }
@@ -34,12 +35,14 @@ public sealed class Payment : AggregateRoot
 
     private Payment(
         Guid id,
+        Guid userId,
         Guid bookingId,
         string stripePaymentIntentId,
         string clientSecret,
         decimal amount,
         string currency) : base(id)
     {
+        UserId = userId;
         BookingId = bookingId;
         StripePaymentIntentId = stripePaymentIntentId;
         ClientSecret = clientSecret;
@@ -53,12 +56,15 @@ public sealed class Payment : AggregateRoot
     /// Creates a Pending payment linked to a booking and a Stripe PaymentIntent.
     /// </summary>
     public static Payment Create(
+        Guid userId,
         Guid bookingId,
         string stripePaymentIntentId,
         string clientSecret,
         decimal amount,
         string currency)
     {
+        if (userId == Guid.Empty)
+            throw new DomainValidationException("UserId is required.");
         if (bookingId == Guid.Empty)
             throw new DomainValidationException("BookingId is required.");
         if (string.IsNullOrWhiteSpace(stripePaymentIntentId))
@@ -72,6 +78,7 @@ public sealed class Payment : AggregateRoot
 
         var payment = new Payment(
             id: Guid.NewGuid(),
+            userId: userId,
             bookingId: bookingId,
             stripePaymentIntentId: stripePaymentIntentId.Trim(),
             clientSecret: clientSecret.Trim(),

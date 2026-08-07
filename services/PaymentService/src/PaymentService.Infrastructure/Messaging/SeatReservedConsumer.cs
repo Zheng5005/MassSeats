@@ -49,6 +49,7 @@ public sealed class SeatReservedConsumer : IEventConsumer<SeatReserved>
 
         await _paymentService.InitiateAsync(
             new InitiatePaymentRequest(
+                @event.UserId,
                 @event.ReservationId,
                 @event.Amount,
                 _options.Currency),

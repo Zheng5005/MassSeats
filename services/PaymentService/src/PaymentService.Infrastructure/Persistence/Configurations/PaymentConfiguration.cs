@@ -19,6 +19,11 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.Id)
             .HasColumnName("id");
 
+        // The owning user, denormalized from SeatReserved for read authorization.
+        builder.Property(p => p.UserId)
+            .HasColumnName("user_id")
+            .IsRequired();
+
         builder.Property(p => p.BookingId)
             .HasColumnName("booking_id");
 

@@ -5,6 +5,7 @@ namespace PaymentService.Application.DTOs;
 /// Triggered by the <c>SeatReserved</c> integration event consumer.
 /// </summary>
 public sealed record InitiatePaymentRequest(
+    Guid UserId,
     Guid BookingId,
     decimal Amount,
     string Currency);

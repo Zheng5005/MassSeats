@@ -23,7 +23,7 @@ public sealed class PaymentInitiateRaceTests
         var service = new PaymentAppService(repository, gateway);
 
         var result = await service.InitiateAsync(
-            new InitiatePaymentRequest(existing.BookingId, 50m, "USD"),
+            new InitiatePaymentRequest(existing.UserId, existing.BookingId, 50m, "USD"),
             cancellationToken);
 
         // The loser returns the committed payment (same booking), not a 500.
@@ -43,7 +43,7 @@ public sealed class PaymentInitiateRaceTests
         var service = new PaymentAppService(repository, gateway);
 
         var result = await service.InitiateAsync(
-            new InitiatePaymentRequest(existing.BookingId, 50m, "USD"),
+            new InitiatePaymentRequest(existing.UserId, existing.BookingId, 50m, "USD"),
             cancellationToken);
 
         Assert.Equal(existing.Id, result.Id);
@@ -53,6 +53,7 @@ public sealed class PaymentInitiateRaceTests
     private static Payment CreatePayment()
     {
         var payment = Payment.Create(
+            Guid.NewGuid(),
             Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
             $"pi_test_{Guid.NewGuid():N}_secret_test",

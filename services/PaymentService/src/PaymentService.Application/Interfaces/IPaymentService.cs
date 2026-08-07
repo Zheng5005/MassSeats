@@ -11,10 +11,20 @@ public interface IPaymentService
     /// <summary>Initiates a payment (creates Stripe PaymentIntent).</summary>
     Task<PaymentResponse> InitiateAsync(InitiatePaymentRequest request, CancellationToken ct = default);
 
-    Task<PaymentResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    /// <summary>
+    /// Returns a payment only when the requesting user owns it. Returns null
+    /// both for a missing payment and for one owned by someone else, so the
+    /// existence of other users' payments is never revealed.
+    /// </summary>
+    Task<PaymentResponse?> GetByIdForUserAsync(Guid id, Guid userId, CancellationToken ct = default);
 
-    /// <summary>Finds a payment by booking ID.</summary>
-    Task<PaymentResponse?> GetByBookingIdAsync(Guid bookingId, CancellationToken ct = default);
+    /// <summary>
+    /// Returns the Stripe client secret + intent id for a booking's payment,
+    /// but ONLY to the owning user while the payment is still Pending. Returns
+    /// null when the payment is missing, owned by someone else, or resolved
+    /// (callers treat it as not found — existence is never revealed).
+    /// </summary>
+    Task<PaymentClientSecretResult?> GetClientSecretForUserAsync(Guid bookingId, Guid userId, CancellationToken ct = default);
 
     /// <summary>
     /// Returns the Stripe client secret for a booking's payment, but ONLY

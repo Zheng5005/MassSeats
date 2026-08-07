@@ -38,6 +38,7 @@ public sealed class PaymentAppService : IPaymentService
 
         // 2. Create and persist the domain aggregate (Pending).
         var payment = Payment.Create(
+            request.UserId,
             request.BookingId,
             result.Id,
             result.ClientSecret,
@@ -64,16 +65,18 @@ public sealed class PaymentAppService : IPaymentService
         return payment.ToResponse();
     }
 
-    public async Task<PaymentResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<PaymentResponse?> GetByIdForUserAsync(Guid id, Guid userId, CancellationToken ct = default)
     {
         var payment = await _repository.GetByIdAsync(id, ct);
-        return payment?.ToResponse();
+        return payment is null || payment.UserId != userId ? null : payment.ToResponse();
     }
 
-    public async Task<PaymentResponse?> GetByBookingIdAsync(Guid bookingId, CancellationToken ct = default)
+    public async Task<PaymentClientSecretResult?> GetClientSecretForUserAsync(Guid bookingId, Guid userId, CancellationToken ct = default)
     {
         var payment = await _repository.GetByBookingIdAsync(bookingId, ct);
-        return payment?.ToResponse();
+        if (payment is null || payment.UserId != userId || payment.Status != PaymentStatus.Pending)
+            return null;
+        return new PaymentClientSecretResult(payment.ClientSecret, payment.StripePaymentIntentId);
     }
 
     public async Task<string?> GetClientSecretAsync(Guid bookingId, CancellationToken ct = default)

@@ -27,6 +27,7 @@ public sealed class PaymentOutboxTests
         await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         var payment = Payment.Create(
             Guid.NewGuid(),
+            Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
             $"pi_test_{Guid.NewGuid():N}_secret_test",
             50m,
@@ -81,6 +82,7 @@ public sealed class PaymentOutboxTests
             await setupContext.Database.EnsureCreatedAsync(cancellationToken);
             var payment = Payment.Create(
                 Guid.NewGuid(),
+                Guid.NewGuid(),
                 $"pi_test_{Guid.NewGuid():N}",
                 $"pi_test_{Guid.NewGuid():N}_secret_test",
                 50m,
@@ -126,6 +128,7 @@ public sealed class PaymentOutboxTests
             await setupContext.Database.EnsureCreatedAsync(cancellationToken);
             var payment = Payment.Create(
                 Guid.NewGuid(),
+                Guid.NewGuid(),
                 $"pi_test_{Guid.NewGuid():N}",
                 $"pi_test_{Guid.NewGuid():N}_secret_test",
                 50m,
@@ -162,6 +165,7 @@ public sealed class PaymentOutboxTests
         await using var dbContext = new PaymentDbContext(options);
         await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         var payment = Payment.Create(
+            Guid.NewGuid(),
             Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
             $"pi_test_{Guid.NewGuid():N}_secret_test",

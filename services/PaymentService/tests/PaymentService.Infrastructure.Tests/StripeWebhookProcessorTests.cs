@@ -137,11 +137,15 @@ public sealed class StripeWebhookProcessorTests
             CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<PaymentResponse?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
+        public Task<PaymentResponse?> GetByIdForUserAsync(
+            Guid id,
+            Guid userId,
+            CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<PaymentResponse?> GetByBookingIdAsync(
+        public Task<PaymentClientSecretResult?> GetClientSecretForUserAsync(
             Guid bookingId,
+            Guid userId,
             CancellationToken ct = default) =>
             throw new NotSupportedException();
 
