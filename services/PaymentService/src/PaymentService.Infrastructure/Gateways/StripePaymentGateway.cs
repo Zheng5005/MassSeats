@@ -20,7 +20,7 @@ public sealed class StripePaymentGateway : IPaymentGateway
         _webhookSecret = options.WebhookSecret;
     }
 
-    public async Task<string> CreatePaymentIntentAsync(
+    public async Task<PaymentIntentResult> CreatePaymentIntentAsync(
         Guid bookingId,
         decimal amount,
         string currency,
@@ -35,6 +35,12 @@ public sealed class StripePaymentGateway : IPaymentGateway
             // decimal currencies (JPY) would need different handling.
             Amount = (long)Math.Round(amount * 100m, MidpointRounding.AwayFromZero),
             Currency = currency.ToLowerInvariant(),
+            // Required for in-browser confirmation with Stripe Elements: the
+            // intent advertises the payment methods the client can select.
+            AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions
+            {
+                Enabled = true
+            }
         };
 
         var requestOptions = new RequestOptions
@@ -43,7 +49,7 @@ public sealed class StripePaymentGateway : IPaymentGateway
         };
 
         var intent = await service.CreateAsync(options, requestOptions, ct);
-        return intent.Id;
+        return new PaymentIntentResult(intent.Id, intent.ClientSecret);
     }
 
     public Task<StripeWebhookResult?> VerifyWebhookAsync(string rawBody, string signatureHeader, CancellationToken ct = default)

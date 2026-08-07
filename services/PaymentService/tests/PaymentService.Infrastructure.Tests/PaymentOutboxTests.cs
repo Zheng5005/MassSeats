@@ -28,6 +28,7 @@ public sealed class PaymentOutboxTests
         var payment = Payment.Create(
             Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
+            $"pi_test_{Guid.NewGuid():N}_secret_test",
             50m,
             "USD");
         dbContext.Payments.Add(payment);
@@ -81,6 +82,7 @@ public sealed class PaymentOutboxTests
             var payment = Payment.Create(
                 Guid.NewGuid(),
                 $"pi_test_{Guid.NewGuid():N}",
+                $"pi_test_{Guid.NewGuid():N}_secret_test",
                 50m,
                 "USD");
             setupContext.Payments.Add(payment);
@@ -125,6 +127,7 @@ public sealed class PaymentOutboxTests
             var payment = Payment.Create(
                 Guid.NewGuid(),
                 $"pi_test_{Guid.NewGuid():N}",
+                $"pi_test_{Guid.NewGuid():N}_secret_test",
                 50m,
                 "USD");
             setupContext.Payments.Add(payment);
@@ -161,6 +164,7 @@ public sealed class PaymentOutboxTests
         var payment = Payment.Create(
             Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
+            $"pi_test_{Guid.NewGuid():N}_secret_test",
             50m,
             "USD");
         dbContext.Payments.Add(payment);

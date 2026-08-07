@@ -27,6 +27,11 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(p => p.ClientSecret)
+            .HasColumnName("client_secret")
+            .HasMaxLength(500)
+            .IsRequired();
+
         builder.Property(p => p.Amount)
             .HasColumnName("amount")
             .HasPrecision(18, 2);

@@ -141,6 +141,11 @@ public sealed class SeatReservedConsumerTests
             CancellationToken ct = default) =>
             throw new NotSupportedException();
 
+        public Task<string?> GetClientSecretAsync(
+            Guid bookingId,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task<PaymentResponse> HandleWebhookAsync(
             StripeWebhookResult webhookEvent,
             CancellationToken ct = default) =>

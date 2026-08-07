@@ -55,6 +55,7 @@ public sealed class PaymentInitiateRaceTests
         var payment = Payment.Create(
             Guid.NewGuid(),
             $"pi_test_{Guid.NewGuid():N}",
+            $"pi_test_{Guid.NewGuid():N}_secret_test",
             50m,
             "USD");
         return payment;
@@ -100,14 +101,16 @@ public sealed class PaymentInitiateRaceTests
     {
         public int CallCount { get; private set; }
 
-        public Task<string> CreatePaymentIntentAsync(
+        public Task<PaymentIntentResult> CreatePaymentIntentAsync(
             Guid bookingId,
             decimal amount,
             string currency,
             CancellationToken ct = default)
         {
             CallCount++;
-            return Task.FromResult($"pi_test_{bookingId:N}");
+            return Task.FromResult(new PaymentIntentResult(
+                $"pi_test_{bookingId:N}",
+                $"pi_test_{bookingId:N}_secret_test"));
         }
 
         public Task<StripeWebhookResult?> VerifyWebhookAsync(

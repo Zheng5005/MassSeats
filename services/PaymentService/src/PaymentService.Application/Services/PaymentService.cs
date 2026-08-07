@@ -33,13 +33,14 @@ public sealed class PaymentAppService : IPaymentService
             return existing.ToResponse();
 
         // 1. Create the PaymentIntent in Stripe (external side effect first).
-        var stripePaymentIntentId = await _gateway.CreatePaymentIntentAsync(
+        var result = await _gateway.CreatePaymentIntentAsync(
             request.BookingId, request.Amount, request.Currency, ct);
 
         // 2. Create and persist the domain aggregate (Pending).
         var payment = Payment.Create(
             request.BookingId,
-            stripePaymentIntentId,
+            result.Id,
+            result.ClientSecret,
             request.Amount,
             request.Currency);
 
@@ -73,6 +74,12 @@ public sealed class PaymentAppService : IPaymentService
     {
         var payment = await _repository.GetByBookingIdAsync(bookingId, ct);
         return payment?.ToResponse();
+    }
+
+    public async Task<string?> GetClientSecretAsync(Guid bookingId, CancellationToken ct = default)
+    {
+        var payment = await _repository.GetByBookingIdAsync(bookingId, ct);
+        return payment is { Status: PaymentStatus.Pending } ? payment.ClientSecret : null;
     }
 
     public async Task<PaymentResponse> HandleWebhookAsync(StripeWebhookResult webhookEvent, CancellationToken ct = default)

@@ -15,6 +15,7 @@ public sealed class Payment : AggregateRoot
 {
     public Guid BookingId { get; private set; }
     public string StripePaymentIntentId { get; private set; }
+    public string ClientSecret { get; private set; }
     public decimal Amount { get; private set; }
     public string Currency { get; private set; }
     public string? PaymentMethod { get; private set; }
@@ -27,6 +28,7 @@ public sealed class Payment : AggregateRoot
     private Payment()
     {
         StripePaymentIntentId = null!;
+        ClientSecret = null!;
         Currency = null!;
     }
 
@@ -34,11 +36,13 @@ public sealed class Payment : AggregateRoot
         Guid id,
         Guid bookingId,
         string stripePaymentIntentId,
+        string clientSecret,
         decimal amount,
         string currency) : base(id)
     {
         BookingId = bookingId;
         StripePaymentIntentId = stripePaymentIntentId;
+        ClientSecret = clientSecret;
         Amount = amount;
         Currency = currency;
         Status = PaymentStatus.Pending;
@@ -51,6 +55,7 @@ public sealed class Payment : AggregateRoot
     public static Payment Create(
         Guid bookingId,
         string stripePaymentIntentId,
+        string clientSecret,
         decimal amount,
         string currency)
     {
@@ -58,6 +63,8 @@ public sealed class Payment : AggregateRoot
             throw new DomainValidationException("BookingId is required.");
         if (string.IsNullOrWhiteSpace(stripePaymentIntentId))
             throw new DomainValidationException("Stripe PaymentIntent ID is required.");
+        if (string.IsNullOrWhiteSpace(clientSecret))
+            throw new DomainValidationException("Client secret is required.");
         if (amount <= 0)
             throw new DomainValidationException("Amount must be greater than zero.");
         if (string.IsNullOrWhiteSpace(currency))
@@ -67,6 +74,7 @@ public sealed class Payment : AggregateRoot
             id: Guid.NewGuid(),
             bookingId: bookingId,
             stripePaymentIntentId: stripePaymentIntentId.Trim(),
+            clientSecret: clientSecret.Trim(),
             amount: amount,
             currency: currency.Trim().ToUpperInvariant());
 

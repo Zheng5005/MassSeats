@@ -147,7 +147,7 @@ public sealed class SeatReservedMessagingTests
         public int CreateCalls => _createCalls;
         public Guid BookingId { get; private set; }
 
-        public Task<string> CreatePaymentIntentAsync(
+        public Task<PaymentIntentResult> CreatePaymentIntentAsync(
             Guid bookingId,
             decimal amount,
             string currency,
@@ -155,7 +155,9 @@ public sealed class SeatReservedMessagingTests
         {
             BookingId = bookingId;
             Interlocked.Increment(ref _createCalls);
-            return Task.FromResult($"pi_test_{Guid.NewGuid():N}");
+            return Task.FromResult(new PaymentIntentResult(
+                $"pi_test_{Guid.NewGuid():N}",
+                $"pi_test_{Guid.NewGuid():N}_secret_test"));
         }
 
         public Task<StripeWebhookResult?> VerifyWebhookAsync(

@@ -15,6 +15,25 @@ public static class PaymentEndpoints
             return payment is null ? Results.NotFound() : Results.Ok(payment);
         });
 
+        // In-browser checkout: returns the Stripe client secret so the browser
+        // can confirm the payment with Stripe Elements. Only exposed while the
+        // payment is Pending — a resolved payment returns the same 404 as a
+        // missing one (nothing left to confirm). The secret never appears in
+        // the general read model (GET /payments/{id}).
+        group.MapGet("/{bookingId:guid}/client-secret", async (Guid bookingId, IPaymentService service, CancellationToken ct) =>
+        {
+            var clientSecret = await service.GetClientSecretAsync(bookingId, ct);
+            if (clientSecret is null)
+                return Results.NotFound();
+
+            var payment = await service.GetByBookingIdAsync(bookingId, ct);
+            return Results.Ok(new
+            {
+                clientSecret,
+                paymentIntentId = payment?.StripePaymentIntentId
+            });
+        });
+
         // Called by Stripe (not RabbitMQ). The signature is verified against
         // the RAW request body, so we read the body ourselves instead of
         // binding a DTO — deserializing first would change the bytes and
