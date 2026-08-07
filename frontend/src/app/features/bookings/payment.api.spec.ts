@@ -45,4 +45,16 @@ describe('PaymentService', () => {
 
     expect(result).toEqual(payment);
   });
+
+  it('gets a client secret with GET /payments/:bookingId/client-secret', () => {
+    const payload = { clientSecret: 'pi_123_secret_xyz', paymentIntentId: 'pi_123' };
+    let result: { clientSecret: string; paymentIntentId: string } | undefined;
+    service.getClientSecret('res-1').subscribe((secret) => (result = secret));
+
+    const req = httpMock.expectOne('http://localhost:8080/payments/res-1/client-secret');
+    expect(req.request.method).toBe('GET');
+    req.flush(payload);
+
+    expect(result).toEqual(payload);
+  });
 });

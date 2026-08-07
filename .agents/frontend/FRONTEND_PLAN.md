@@ -153,8 +153,8 @@ export interface Payment {
 
 | Capability | Why blocked | Unblocked by |
 |------------|-------------|--------------|
-| **In-browser Stripe checkout** | PaymentService creates the PaymentIntent server-side on `SeatReserved`; there is **no endpoint returning a `client_secret`** to the frontend. | A `GET /payments/{bookingId}/client-secret` (or similar) endpoint on PaymentService. |
-| **"My reservations" list** | BookingService exposes only `GET /reservations/{id}`. There is no `GET /reservations?userId=...`. | New query endpoint on BookingService (or track ids client-side for now). |
+| ~~**In-browser Stripe checkout**~~ ✅ | ~~No endpoint returning a `client_secret`.~~ | Resolved 2026-08-07: `GET /payments/{bookingId}/client-secret` (PaymentService) + Stripe Payment Element "Pay now" flow in `reservation-detail` (see §3.3 of the checkout plan). |
+| ~~**"My reservations" list**~~ ✅ | ~~No list-by-user endpoint.~~ | Resolved 2026-08-07: `GET /reservations` (user-scoped via `X-User-Id`) + `/reservations` page with nav link. |
 | **Category management** | EventService exposes only `GET /categories`. | New create/update/delete endpoints. |
 | **Role-based admin** | JWT carries no role claim; gateway authorizes any authenticated user for every mutation. | Add role claim to JWT + gateway policy. For now, gate "admin" pages behind auth only (documented limitation). |
 | **Reservation confirm action** | Confirmation is **event-driven** (`PaymentSucceeded` → Booking confirms). No manual confirm endpoint exists or is planned. | Nothing needed: UI only reflects the status. |
@@ -326,8 +326,8 @@ Each phase is independently verifiable against the running stack (`docker compos
 
 These block future frontend work but are explicitly **not** part of this plan:
 
-1. **Stripe checkout UX** — needs a client-secret endpoint on PaymentService before the browser can render Stripe Elements.
-2. **"My reservations" list** — needs `GET /reservations?userId=` on BookingService; until then the app tracks created reservation ids locally (best effort).
+1. ~~**Stripe checkout UX**~~ ✅ Resolved 2026-08-07: `GET /payments/{bookingId}/client-secret` endpoint + frontend `@stripe/stripe-js` Payment Element checkout (`STRIPE_PUBLISHABLE_KEY` token in `api.config.ts`, default empty → fallback copy).
+2. ~~**"My reservations" list**~~ ✅ Resolved 2026-08-07: `GET /reservations` (X-User-Id scoped) + `/reservations` page and nav link.
 3. **Role claims** — needs a role claim in the JWT + gateway policies before "admin" means anything.
 4. **Category admin** — needs create/update/delete endpoints on EventService.
 

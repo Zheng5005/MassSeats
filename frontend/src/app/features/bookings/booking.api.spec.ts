@@ -67,6 +67,17 @@ describe('BookingService', () => {
     expect(result).toEqual(reservation);
   });
 
+  it('lists the current user reservations with GET /booking/reservations', () => {
+    let result: Reservation[] | undefined;
+    service.listReservations().subscribe((res) => (result = res));
+
+    const req = httpMock.expectOne('http://localhost:8080/booking/reservations');
+    expect(req.request.method).toBe('GET');
+    req.flush([reservation]);
+
+    expect(result).toEqual([reservation]);
+  });
+
   it('cancels a reservation with DELETE and completes without a body', () => {
     let completed = false;
     service.cancelReservation('res-1').subscribe({ complete: () => (completed = true) });

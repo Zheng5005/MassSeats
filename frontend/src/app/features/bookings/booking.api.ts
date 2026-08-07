@@ -17,6 +17,14 @@ export class BookingService {
     return this.api.post<Reservation>('/booking/reservations', request);
   }
 
+  /**
+   * The gateway scopes the result to the current user via the X-User-Id header
+   * it injects from the JWT, so the frontend passes no user id here.
+   */
+  listReservations(): Observable<Reservation[]> {
+    return this.api.get<Reservation[]>(`/booking/reservations`);
+  }
+
   getReservation(id: string): Observable<Reservation> {
     return this.api.get<Reservation>(`/booking/reservations/${id}`);
   }

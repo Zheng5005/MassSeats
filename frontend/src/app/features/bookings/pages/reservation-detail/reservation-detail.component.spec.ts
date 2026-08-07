@@ -134,6 +134,21 @@ describe('ReservationDetail', () => {
     expect(buttonWithText('Cancel reservation')).toBeUndefined();
   });
 
+  it('falls back to the explanatory copy when checkout is unavailable', async () => {
+    // STRIPE_PUBLISHABLE_KEY defaults to '' (no globalThis override), so the
+    // checkout short-circuits to 'unavailable' without touching Stripe or the
+    // client-secret endpoint.
+    await createAt('/reservations/res-1');
+    httpMock.expectOne('http://localhost:8080/booking/reservations/res-1').flush(reservation);
+    fixture.detectChanges();
+
+    expect(component().checkoutStatus()).toBe('unavailable');
+    expect(text()).toContain('Payment pending');
+    expect(text()).toContain("In-browser payment isn't available yet");
+    expect(buttonWithText('Pay')).toBeUndefined();
+    expect(buttonWithText('Cancel reservation')).toBeDefined();
+  });
+
   it('renders payment details for a confirmed reservation', async () => {
     await createAt('/reservations/res-1');
     httpMock
