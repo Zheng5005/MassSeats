@@ -50,6 +50,12 @@ public sealed class ReservationAppService : IReservationService
         return reservation?.ToResponse();
     }
 
+    public async Task<IReadOnlyList<ReservationResponse>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        var reservations = await _repository.GetByUserIdAsync(userId, ct);
+        return reservations.Select(reservation => reservation.ToResponse()).ToList();
+    }
+
     public async Task<ReservationResponse> ConfirmAsync(Guid id, ConfirmReservationRequest request, CancellationToken ct = default)
     {
         var reservation = await _repository.GetByIdAsync(id, ct)

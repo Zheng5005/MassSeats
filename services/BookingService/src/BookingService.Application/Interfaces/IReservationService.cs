@@ -18,6 +18,13 @@ public interface IReservationService
 
     Task<ReservationResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// Returns every reservation for the given <paramref name="userId"/>,
+    /// newest first, mapped to responses. The caller's identity must come
+    /// from the gateway-injected X-User-Id header, never a query parameter.
+    /// </summary>
+    Task<IReadOnlyList<ReservationResponse>> GetByUserIdAsync(Guid userId, CancellationToken ct = default);
+
     /// <summary>Confirms a Pending reservation after a successful payment.</summary>
     Task<ReservationResponse> ConfirmAsync(Guid id, ConfirmReservationRequest request, CancellationToken ct = default);
 

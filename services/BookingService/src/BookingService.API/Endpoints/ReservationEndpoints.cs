@@ -19,6 +19,16 @@ public static class ReservationEndpoints
             return Results.Created($"/reservations/{reservation.Id}", reservation);
         });
 
+        group.MapGet("/", async (HttpContext httpContext, IReservationService service, CancellationToken ct) =>
+        {
+            var userIdHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userIdHeader) || !Guid.TryParse(userIdHeader, out var userId))
+                return Results.Unauthorized();
+
+            var reservations = await service.GetByUserIdAsync(userId, ct);
+            return Results.Ok(reservations);
+        });
+
         group.MapGet("/{id:guid}", async (Guid id, IReservationService service, CancellationToken ct) =>
         {
             var reservation = await service.GetByIdAsync(id, ct);

@@ -16,6 +16,17 @@ public sealed class ReservationRepository : IReservationRepository
     public Task<Reservation?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         _context.Reservations.FirstOrDefaultAsync(r => r.Id == id, ct);
 
+    public async Task<IReadOnlyList<Reservation>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        var reservations = await _context.Reservations
+            .Where(r => r.UserId == userId)
+            .ToListAsync(ct);
+
+        // Ordered client-side: the SQLite provider cannot translate ORDER BY
+        // over a DateTimeOffset column, and the set is already scoped to one user.
+        return reservations.OrderByDescending(r => r.ReservedAt).ToList();
+    }
+
     public async Task<IReadOnlyList<Reservation>> GetExpiredPendingAsync(DateTimeOffset asOf, CancellationToken ct = default) =>
         await _context.Reservations
             .Where(r => r.Status == ReservationStatus.Pending && r.ExpiresAt <= asOf)
